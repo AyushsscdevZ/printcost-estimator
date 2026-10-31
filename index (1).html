@@ -1,0 +1,3111 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Print Estimator - Intelligent Costing & BOQ Automation</title>
+  <!-- SheetJS for fast reading & parsing of Excel/CSV files -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- ExcelJS for styled Excel export with yellow cells, green totals, gold final rate -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --pn: #ffffff;
+      --tx: #1c1b18;
+      --mu: #77736a;
+      --bd: #e4e0d6;
+      --y: #fff2a8;
+      --yt: #1c1b18;
+      --ac: #e8730c;
+      --ach: #d26507;
+      --gr: #e3f0dc;
+      --grt: #1b4414;
+      --fin: #ffc000;
+      --fint: #1c1b18;
+      --dk: #1c1b18;
+      --dkt: #f5c542;
+      box-sizing: border-box;
+    }
+
+    @media(prefers-color-scheme:dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #14130f;
+        --pn: #1d1c17;
+        --tx: #eeeae0;
+        --mu: #9a958a;
+        --bd: #33312a;
+        --gr: #26361f;
+        --grt: #a8e69c;
+        --dk: #050504;
+        --dkt: #f5c542;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #14130f;
+      --pn: #1d1c17;
+      --tx: #eeeae0;
+      --mu: #9a958a;
+      --bd: #33312a;
+      --gr: #26361f;
+      --grt: #a8e69c;
+      --dk: #050504;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    body {
+      height: 100vh;
+      background: var(--bg);
+      color: var(--tx);
+      font: 13.5px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: var(--pn);
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+      height: 50px;
+    }
+
+    .logo {
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .logo b {
+      color: var(--ac)
+    }
+
+    .tab-group {
+      display: flex;
+      gap: 4px;
+      background: var(--bg);
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--bd);
+    }
+
+    .tab {
+      border: 0;
+      background: none;
+      color: var(--mu);
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      font-size: 12.5px;
+      transition: all .15s;
+    }
+
+    .tab:hover {
+      color: var(--tx)
+    }
+
+    .tab.on {
+      background: var(--dk);
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .hdr-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tender-badge {
+      font-size: 12px;
+      color: var(--mu);
+      background: var(--bg);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--bd);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tender-badge b {
+      color: var(--tx)
+    }
+
+    button.pri {
+      background: var(--ac);
+      color: #fff;
+      border: 0;
+      border-radius: 7px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      font-size: 12.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background .15s;
+    }
+
+    button.pri:hover {
+      background: var(--ach)
+    }
+
+    button.sec {
+      background: var(--pn);
+      color: var(--tx);
+      border: 1px solid var(--bd);
+      border-radius: 7px;
+      padding: 6px 11px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      font-size: 12.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all .15s;
+    }
+
+    button.sec:hover {
+      background: var(--bg);
+      border-color: var(--ac)
+    }
+
+    button.sm-btn {
+      padding: 4px 8px;
+      font-size: 11.5px;
+      border-radius: 6px;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 280px 240px minmax(460px, 1fr) 250px;
+      min-height: 0;
+    }
+
+    main>section {
+      border-right: 1px solid var(--bd);
+      overflow: auto;
+      min-height: 0;
+      background: var(--pn);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Col 1: Chat Assistant */
+    #chatP {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .lh {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+    }
+
+    .lh small {
+      color: var(--mu);
+      letter-spacing: .08em;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .lh h3 {
+      margin: 2px 0 6px;
+      font-size: 15px
+    }
+
+    #msgs {
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .m {
+      padding: 9px 12px;
+      border-radius: 12px;
+      max-width: 92%;
+      white-space: pre-wrap;
+      font-size: 12.5px;
+      line-height: 1.45;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .m.bot {
+      background: var(--bg);
+      border: 1px solid var(--bd);
+      align-self: flex-start;
+      color: var(--tx);
+    }
+
+    .m.me {
+      background: var(--ac);
+      color: #fff;
+      align-self: flex-end;
+    }
+
+    .drop {
+      margin: 8px 12px;
+      border: 1.5px dashed var(--bd);
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: var(--bg);
+      transition: all .2s;
+      flex-shrink: 0;
+    }
+
+    .drop:hover,
+    .drop.dragover {
+      border-color: var(--ac);
+      background: var(--pn);
+    }
+
+    .drop .ico {
+      font-size: 22px;
+      color: var(--ac);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 0 12px 8px;
+      flex-shrink: 0;
+    }
+
+    .chip {
+      font-size: 11.5px;
+      border: 1px solid var(--bd);
+      background: var(--bg);
+      color: var(--tx);
+      border-radius: 99px;
+      padding: 3px 9px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .chip:hover {
+      border-color: var(--ac);
+      color: var(--ac);
+      background: var(--pn);
+    }
+
+    .send {
+      display: flex;
+      gap: 6px;
+      padding: 0 12px 10px;
+      flex-shrink: 0;
+    }
+
+    .send input {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--bd);
+      background: var(--bg);
+      color: var(--tx);
+      font: inherit;
+      font-size: 12.5px;
+    }
+
+    .send input:focus {
+      outline: none;
+      border-color: var(--ac);
+    }
+
+    /* Col 2: Item List */
+    #listP {
+      overflow: hidden;
+    }
+
+    .list-actions {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .mode-toggle {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--bd);
+      border-radius: 6px;
+      overflow: hidden;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    .mode-toggle button {
+      border: 0;
+      background: none;
+      padding: 3px 8px;
+      cursor: pointer;
+      color: var(--mu);
+      font: inherit;
+    }
+
+    .mode-toggle button.active {
+      background: var(--ac);
+      color: #fff;
+    }
+
+    #srch {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 7px;
+      border: 1px solid var(--bd);
+      background: var(--bg);
+      color: var(--tx);
+      margin-top: 8px;
+      font: inherit;
+      font-size: 12px;
+    }
+
+    #srch:focus {
+      outline: none;
+      border-color: var(--ac);
+    }
+
+    #list {
+      flex: 1;
+      overflow: auto;
+    }
+
+    .it {
+      display: flex;
+      gap: 8px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--bd);
+      cursor: pointer;
+      align-items: center;
+      transition: background .1s;
+    }
+
+    .it:hover {
+      background: var(--bg)
+    }
+
+    .it.on {
+      background: var(--bg);
+      box-shadow: inset 3.5px 0 var(--ac);
+    }
+
+    .it .n {
+      color: var(--mu);
+      width: 20px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .it .t {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .it .t b {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 600;
+      font-size: 12.5px;
+    }
+
+    .it .t span {
+      color: var(--mu);
+      font-size: 11px;
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .it .r {
+      color: var(--ac);
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .na {
+      background: var(--bd);
+      color: var(--tx);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* Col 3: Costing Detail */
+    #det {
+      padding: 16px;
+      background: var(--bg);
+      overflow: auto;
+    }
+
+    .top {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      background: var(--pn);
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--bd);
+    }
+
+    .top small {
+      color: var(--ac);
+      letter-spacing: .08em;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .top h2 {
+      margin: 2px 0 3px;
+      font-size: 17px;
+    }
+
+    .top p {
+      margin: 0;
+      color: var(--mu);
+      max-width: 650px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .top select {
+      padding: 7px 10px;
+      border-radius: 7px;
+      border: 1px solid var(--bd);
+      background: var(--pn);
+      color: var(--tx);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .wrap {
+      overflow-x: hidden;
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      background: var(--pn);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      table-layout: fixed;
+    }
+
+    th {
+      font-size: 10.5px;
+      letter-spacing: .08em;
+      color: var(--mu);
+      text-align: left;
+      padding: 8px 10px;
+      background: var(--bg);
+      font-weight: 700;
+      border-bottom: 1px solid var(--bd);
+    }
+
+    th:nth-child(1) {
+      width: 44%;
+    }
+
+    th:nth-child(2) {
+      width: 30%;
+      text-align: center;
+    }
+
+    th:nth-child(3) {
+      width: 26%;
+      text-align: right;
+    }
+
+    td {
+      padding: 4px 8px;
+      border-top: 1px solid var(--bd);
+      vertical-align: middle;
+      font-size: 12px;
+    }
+
+    td:nth-child(1) {
+      font-size: 12px;
+      color: var(--tx);
+      width: 44%;
+      word-break: break-word;
+    }
+
+    td:nth-child(2) {
+      width: 30%;
+    }
+
+    td:nth-child(3) {
+      width: 26%;
+      text-align: right;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 600;
+      font-size: 12.5px;
+      white-space: nowrap;
+    }
+
+    .inputs-cell {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    td input,
+    td select {
+      background: var(--y);
+      color: var(--yt);
+      border: 1px solid #d9c24a;
+      border-radius: 5px;
+      padding: 4px 6px;
+      width: 100%;
+      min-width: 0;
+      max-width: 110px;
+      text-align: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    td select {
+      max-width: 100%;
+      font-family: inherit;
+      text-align: left;
+    }
+
+    td input:focus,
+    td select:focus {
+      outline: none;
+      border-color: var(--ac);
+      box-shadow: 0 0 0 2px rgba(232, 115, 12, 0.2);
+    }
+
+    .x {
+      color: var(--mu);
+      padding: 0 1px;
+      font-weight: 700;
+      font-size: 10px;
+    }
+
+    tr.hd td {
+      background: var(--dk);
+      color: var(--dkt);
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      font-size: 11.5px;
+      padding: 7px 12px;
+    }
+
+    tr.sub td {
+      background: var(--bg);
+      font-weight: 700;
+    }
+
+    tr.green td {
+      background: var(--gr);
+      color: var(--grt);
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+
+    tr.final td {
+      background: var(--fin);
+      color: var(--fint);
+      font-weight: 800;
+      font-size: 15px;
+      padding: 8px 12px;
+    }
+
+    tr.spec-row td {
+      background: #eaf4ff;
+      color: #1a3a5c;
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 8px 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border-bottom: 2px solid #b8d8f0;
+    }
+
+    :root[data-theme="dark"] tr.spec-row td,
+    @media(prefers-color-scheme:dark) {
+      :root:not([data-theme="light"]) tr.spec-row td {
+        background: #1a2a3a;
+        color: #a8cfef;
+        border-bottom-color: #2a4a6a;
+      }
+    }
+
+    .nabox {
+      padding: 40px 20px;
+      text-align: center;
+      border: 1.5px dashed var(--bd);
+      border-radius: 12px;
+      background: var(--pn);
+      margin-top: 10px;
+    }
+
+    .nabox b {
+      font-size: 22px;
+      color: var(--mu);
+      display: block;
+      margin-bottom: 6px
+    }
+
+    .empty-view {
+      padding: 50px 20px;
+      text-align: center;
+      background: var(--pn);
+      border: 1.5px dashed var(--bd);
+      border-radius: 12px;
+      margin: 20px auto;
+      max-width: 540px;
+    }
+
+    .empty-view h3 {
+      margin-bottom: 8px;
+      font-size: 18px
+    }
+
+    .empty-view p {
+      color: var(--mu);
+      font-size: 13px;
+      margin-bottom: 18px;
+      line-height: 1.5
+    }
+
+    .empty-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap
+    }
+
+    /* Col 4: Summary */
+    #sum {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: var(--bg);
+      overflow: auto;
+    }
+
+    .card {
+      background: var(--pn);
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    }
+
+    .card.big {
+      border: 1.5px solid var(--ac);
+      background: linear-gradient(180deg, var(--pn) 0%, rgba(232, 115, 12, 0.04) 100%);
+    }
+
+    .card small {
+      color: var(--ac);
+      letter-spacing: .1em;
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      display: block;
+    }
+
+    .card .v {
+      font: 800 32px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--ac);
+      margin-top: 4px;
+    }
+
+    .kv {
+      display: flex;
+      justify-content: space-between;
+      padding: 3.5px 0;
+      color: var(--mu);
+      font-size: 12px;
+    }
+
+    .kv b {
+      color: var(--tx);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 600;
+    }
+
+    .action-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .legend {
+      color: var(--mu);
+      font-size: 11.5px;
+      line-height: 1.4;
+      padding: 8px 10px;
+      background: var(--pn);
+      border-radius: 8px;
+      border: 1px solid var(--bd);
+    }
+
+    .yellow-pill {
+      background: var(--y);
+      padding: 1px 6px;
+      border: 1px solid #d9c24a;
+      border-radius: 4px;
+      font-weight: 600;
+      color: var(--yt);
+    }
+
+    /* Rates Tab */
+    #rates {
+      display: none;
+      padding: 24px;
+      max-width: 700px;
+      margin: 0 auto;
+      grid-column: 1/-1;
+      overflow: auto;
+      background: var(--pn);
+    }
+
+    .rates-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 14px;
+    }
+
+    .rates-group {
+      background: var(--bg);
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .rates-group h4 {
+      margin-bottom: 10px;
+      color: var(--ac);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .rates-group label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--bd);
+      font-size: 12.5px;
+    }
+
+    .rates-group label:last-child {
+      border-bottom: 0
+    }
+
+    .rates-group input {
+      background: var(--y);
+      color: var(--yt);
+      border: 1px solid #d9c24a;
+      border-radius: 6px;
+      padding: 5px 8px;
+      width: 100px;
+      text-align: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    @media(max-width:1150px) {
+      main {
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+      }
+
+      main>section {
+        border-right: 0;
+        border-bottom: 1px solid var(--bd);
+        overflow: visible;
+      }
+
+      #chatP {
+        height: 380px
+      }
+
+      #det {
+        overflow: visible
+      }
+
+      body {
+        height: auto;
+        overflow: auto
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="logo">▦ Print <b>Estimator</b><span
+        style="font-size:10px;background:var(--y);color:var(--yt);padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid #d9c24a">AUTO
+        2.0</span></div>
+    <div class="tab-group">
+      <button class="tab on" id="t1">Workspace</button>
+      <button class="tab" id="t2">Rates &amp; Defaults</button>
+    </div>
+    <div class="hdr-right">
+      <span class="tender-badge" id="tbInfo">📄 <b id="tnDisplay">No Tender Loaded</b> · <span id="itemCount">0
+          items</span></span>
+      <button class="sec sm-btn" id="clrBtn" title="Clear current tender and start fresh">✕ Clear</button>
+      <button class="pri sm-btn" id="hdrExpBtn">⬇ Download Costed BOQ</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- COL 1: Costing Assistant -->
+    <section id="chatP">
+      <div class="lh">
+        <small>COSTING ASSISTANT</small>
+        <h3>Chat &amp; Dynamic Tender Parsing</h3>
+        <span style="color:var(--mu);font-size:11.5px">Drop any Excel BOQ → Complete calculation with zero blanks</span>
+      </div>
+      <div id="msgs"></div>
+      <div class="drop" id="drop">
+        <span class="ico">⇪</span>
+        <div>
+          <b style="font-size:12.5px">Upload Any Tender Excel</b><br>
+          <span style="color:var(--mu);font-size:11px">Click or drag &amp; drop .xlsx / .xls BOQ</span>
+        </div>
+      </div>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+      <div class="chips" id="chips"></div>
+      <div class="send">
+        <input id="q" placeholder="e.g. Set profit to 18% for all items">
+        <button class="pri" id="go">➤</button>
+      </div>
+    </section>
+
+    <!-- COL 2: Tender Items List -->
+    <section id="listP">
+      <div class="lh">
+        <small>TENDER ITEMS</small>
+        <h3 id="tn" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">No Tender Loaded</h3>
+        <div class="list-actions">
+          <button class="pri sm-btn" id="expItemBtn" title="Download Excel costing sheet for currently selected item">⬇
+            Item Excel</button>
+          <button class="sec sm-btn" id="expAllBtn" title="Download filled BOQ + all detail costing sheets">⬇ BOQ
+            Excel</button>
+          <button class="sec sm-btn" id="add">+ Item</button>
+        </div>
+        <div class="mode-toggle">
+          <button id="modeDiv12" class="active" title="Annual Quantity divided by 12 as requested">÷ 12
+            (Monthly)</button>
+          <button id="modeAnnual" title="Full Annual Quantity">Full Annual</button>
+        </div>
+        <div style="color:var(--mu);font-size:11.5px;margin-top:6px;font-weight:600" id="tot">Total tender cost: ₹0
+        </div>
+        <input id="srch" placeholder="Search items by name, cat, type...">
+      </div>
+      <div id="list"></div>
+    </section>
+
+    <!-- COL 3: Costing Detail Table -->
+    <section id="det"></section>
+
+    <!-- COL 4: Summary Card -->
+    <section id="sum"></section>
+
+    <!-- TAB 2: Rates & Defaults -->
+    <section id="rates"></section>
+  </main>
+
+  <script>
+    // --- CORE UTILITIES ---
+    const $ = s => document.querySelector(s);
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+    const fmt = (n, d = 0) => isFinite(n) ? Number(n).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d }) : '0';
+    const get = (o, p) => p.split('.').reduce((a, k) => a ? a[k] : undefined, o);
+    const set = (o, p, v) => {
+      const k = p.split('.'), l = k.pop();
+      k.reduce((a, x) => a[x], o)[l] = v;
+    };
+
+    // --- GLOBAL DEFAULTS & SPECIFICATIONS ---
+    const PAPERS = [
+      'Maplitho',
+      'Art Paper Gloss',
+      'Art Paper Matt',
+      'Kraft Paper',
+      'Board Paper',
+      'Bond Paper',
+      'Ledger Paper'
+    ];
+
+    const S = {
+      rates: {
+        'Maplitho': 58,
+        'Art Paper Gloss': 76,
+        'Art Paper Matt': 76,
+        'Kraft Paper': 56,
+        'Board Paper': 70,
+        'Bond Paper': 72,
+        'Ledger Paper': 82
+      },
+      plateRate: 500,       // ₹500 per plate (as requested)
+      printRate: 200,       // ₹200 per 1000 sheets per colour (as requested)
+      wMin: 250,            // default min 250 wastage sheets (as requested)
+      wPct: 3,              // default 3% wastage (as requested)
+      vdpDefault: 0.15,     // default 0.15 per pc (as requested)
+      transportRate: 2.0,   // ₹2 per KG (as requested / per reference image)
+      profitDefault: 15,    // 15% default profit
+      divideBy12: true,     // Divide annual quantity by 12 default (as requested)
+      ab: null,             // Original ArrayBuffer of uploaded tender
+      originalWb: null      // Parsed workbook reference
+    };
+
+    // 7 PRODUCT TYPES (including PADS as explicitly requested)
+    const TYPES = {
+      letter: 'Letter',
+      envelope: 'Envelope',
+      pads: 'Pads',
+      booklet: 'Booklet',
+      passbook: 'Passbook',
+      voucher: 'Debit/Credit Voucher',
+      multi: 'Multipurpose Document'
+    };
+
+    const BOOK = t => ['booklet', 'passbook', 'multi'].includes(t);
+
+    let items = [];
+    let cur = 0;
+
+    // Multi-part section factory for booklets/passbooks
+    const sec = o => ({
+      paper: 'Maplitho',
+      gsm: 78,
+      prodL: 0,
+      prodW: 0,
+      L: 23,
+      W: 36,
+      pages: 44,
+      pps: 16,
+      c1: 4,
+      c2: 4,
+      plates: 8,
+      plateRate: S.plateRate,
+      printRate: 100,
+      bind: 0.50,
+      cpfA: 50,
+      cpfB: 50,
+      transp: 5.0,
+      ...o
+    });
+
+    // Construct default parameters for each product type
+    function mk(t) {
+      const b = {
+        paper: 'Maplitho',
+        gsm: 78,
+        prodL: 0,
+        prodW: 0,
+        L: 24,
+        W: 33.46,
+        c1: 4,
+        c2: 4,
+        qty: 0,
+        ups: 8,
+        wPct: S.wPct,
+        wMin: S.wMin,
+        extra: 0,
+        pmethod: 'cellback',
+        plates: 4,
+        plateRate: S.plateRate,
+        printRate: S.printRate,
+        cpfA: 50,
+        cpfB: 4000,
+        transp: S.transportRate,
+        profit: S.profitDefault
+      };
+
+      let f;
+      if (t === 'letter') {
+        // Letter: GSM 78, 24x33.46, 4x4, ups 8, wastage 3% (min 250), plate 4 @ 500, printing 200, CPF 50x4000, transport 2, profit 15%
+        f = { ...b, vdp: S.vdpDefault };
+      } else if (t === 'envelope') {
+        // Envelope: GSM 100, 20x30, 4+0, ups 6, wastage 3% (min 250), plate 4 @ 500, printing 200, lamination 0,
+        // env making 100, punching (1200 if <=10 ups, 2100 if >10, + 150/1000 sheets), strip gumming 120, window 100, CPF 50x2000, transport 2, profit 15%
+        const ups = 6;
+        f = {
+          ...b,
+          paper: 'Kraft Paper',
+          gsm: 100,
+          L: 20,
+          W: 30,
+          c1: 4,
+          c2: 0,
+          ups: ups,
+          plates: 4,
+          lam: 0,
+          make: 100,
+          punchDie: ups <= 10 ? 1200 : 2100, // User rule: 1200 if <= 10, else 2100
+          punchRate: 150,                     // User rule: 150 rs per 1000 sheets
+          gum: 120,
+          win: 100,
+          cpfB: 2000
+        };
+      } else if (t === 'pads') {
+        // Pads: Writing / Prescription / Voucher pads
+        f = {
+          ...b,
+          paper: 'Maplitho',
+          gsm: 70,
+          L: 20,
+          W: 30,
+          c1: 1,
+          c2: 0,
+          ups: 16,
+          plates: 1,
+          num: 0,
+          padSize: 100,
+          bind: 3.00,
+          profit: 20
+        };
+      } else if (t === 'voucher') {
+        // Debit/Credit Voucher: Bond paper 25x36, 1+1, 30 ups, 2 plates, pad size 100, binding 3, profit 20%
+        f = {
+          ...b,
+          paper: 'Bond Paper',
+          L: 25,
+          W: 36,
+          c1: 1,
+          c2: 1,
+          ups: 30,
+          plates: 2,
+          num: 0,
+          padSize: 100,
+          bind: 3.00,
+          profit: 20
+        };
+      } else {
+        // Multi-part items: Booklet, Passbook, Multipurpose
+        const k = { qty: 0, wPct: S.wPct, wMin: S.wMin, extra: 0 };
+        if (t === 'booklet') {
+          f = {
+            ...k,
+            profit: 25,
+            s0: sec({ paper: 'Maplitho', gsm: 78, L: 23, W: 36, pages: 44, pps: 16, c1: 4, c2: 4, plates: 32, printRate: 100, bind: 0.50, cpfA: 50, cpfB: 50, transp: 5.0 }),
+            s1: sec({ paper: 'Art Paper Gloss', gsm: 170, L: 23, W: 36, pages: 4, pps: 16, c1: 4, c2: 4, plates: 8, printRate: 100, bind: 0.35, cpfA: 0, cpfB: 1, transp: 5.0 })
+          };
+        } else if (t === 'passbook') {
+          f = {
+            ...k,
+            profit: 18,
+            punch: 0,
+            bar: 0,
+            s0: sec({ paper: 'Maplitho', gsm: 78, L: 23, W: 32, pages: 20, pps: 48, c1: 1, c2: 1, plates: 8, printRate: 80, bind: 0.32, cpfA: 50, cpfB: 300, transp: 3.5 }),
+            s1: sec({ paper: 'Art Paper Gloss', gsm: 195, L: 23, W: 32.5, pages: 4, pps: 48, c1: 4, c2: 1, plates: 8, printRate: 100, bind: 0, cpfA: 50, cpfB: 300, transp: 3.5 })
+          };
+        } else if (t === 'multi') {
+          f = {
+            ...k,
+            profit: 10,
+            s0: sec({ paper: 'Ledger Paper', gsm: 78, L: 27, W: 33.5, pages: 20, pps: 16, c1: 1, c2: 1, plates: 6, printRate: 100, bind: 0.25, cpfA: 40, cpfB: 100, transp: 2.0 })
+          };
+        }
+      }
+
+      [f, f.s0, f.s1].forEach(x => {
+        if (x && x.paper) x.rate = S.rates[x.paper] ?? 58;
+      });
+      if (!BOOK(t)) {
+        f.plates = calcPlates(f, t);
+      }
+      return f;
+    }
+
+    // --- AUTOMATIC OVERALL PAPER SIZE & UPS IMPOSITION (Product Size -> Full Press Sheet Size <= 28 x 40) ---
+    function calcPaperSize(pL, pW, ups, isEnvelope = false) {
+      if (!pL || !pW || pL <= 0 || pW <= 0) return { L: 20, W: 30, ups: ups || 1 };
+
+      const MAX_SHORT = 28;
+      const MAX_LONG = 40;
+
+      // Special standard rules for common envelope / letter product sizes
+      const dimMin = Math.min(pL, pW);
+      const dimMax = Math.max(pL, pW);
+
+      // Rule: 10" x 12" Big Brown Envelope -> 10*2=21 (with flap), 12*3=36 -> 21 x 36, 6 ups
+      if (isEnvelope && Math.abs(dimMin - 10) < 0.6 && Math.abs(dimMax - 12) < 0.6) {
+        return { L: 21, W: 36, ups: 6 };
+      }
+
+      // Rule: 10" x 4.5" (or 9.5 x 4.25 / 9.5 x 4.5) White Window Envelope -> 10*2=21, 4.5*7=36 -> 21 x 36, 14 ups
+      if (isEnvelope && (Math.abs(dimMin - 4.5) < 0.8 || Math.abs(dimMin - 4.25) < 0.8) && (Math.abs(dimMax - 10) < 0.8 || Math.abs(dimMax - 9.5) < 0.8)) {
+        return { L: 21, W: 36, ups: 14 };
+      }
+
+      const u = Math.max(1, Math.round(ups || 1));
+
+      if (u === 1) {
+        let l = +Number(pL).toFixed(2);
+        let w = +Number(pW).toFixed(2);
+        if (Math.min(l, w) > MAX_SHORT || Math.max(l, w) > MAX_LONG) {
+          if (l >= w) { l = Math.min(l, MAX_LONG); w = Math.min(w, MAX_SHORT); }
+          else { w = Math.min(w, MAX_LONG); l = Math.min(l, MAX_SHORT); }
+        }
+        return { L: l, W: w, ups: 1 };
+      }
+
+      // Find all factor pairs (u1, u2) such that u1 * u2 >= u
+      const pairs = [];
+      for (let i = 1; i <= Math.sqrt(u); i++) {
+        if (u % i === 0) {
+          pairs.push([i, Math.round(u / i)]);
+        }
+      }
+      if (pairs.length <= 1 && u > 2) {
+        const nextU = u + 1;
+        for (let i = 2; i <= Math.sqrt(nextU); i++) {
+          if (nextU % i === 0) {
+            pairs.push([i, Math.round(nextU / i)]);
+          }
+        }
+      }
+
+      let best = null;
+      let bestScore = Infinity;
+
+      pairs.forEach(([u1, u2]) => {
+        const opts = [
+          { L: +(u1 * pL).toFixed(2), W: +(u2 * pW).toFixed(2), ups: u },
+          { L: +(u2 * pL).toFixed(2), W: +(u1 * pW).toFixed(2), ups: u }
+        ];
+
+        opts.forEach(opt => {
+          const len = Math.max(opt.L, opt.W);
+          const wid = Math.min(opt.L, opt.W);
+          if (wid <= MAX_SHORT + 0.05 && len <= MAX_LONG + 0.05) {
+            const ratio = wid > 0 ? len / wid : 1;
+            const score = Math.abs(ratio - 1.35);
+            if (score < bestScore) {
+              bestScore = score;
+              best = opt;
+            }
+          }
+        });
+      });
+
+      if (best) return best;
+
+      return { L: 21, W: 36, ups: u };
+    }
+
+    // --- AUTOMATIC PLATE CALCULATION (Machine capacity 50,000 sheets/lot) ---
+    // Rule:
+    // 1. Machine loads max 50,000 sheets at a time -> lots = Math.max(1, Math.ceil(qty / 50000))
+    // 2. In Cellback: 1 plate per colour per lot (e.g. 4 colours = 4 plates; 150,000 qty = 3 lots = 12 plates)
+    // 3. In Front & Back (frontback): double of cellback (e.g. 4 colours = 8 plates; 150,000 qty = 3 lots = 24 plates)
+    // 4. For 50,000 lot in frontback: 25,000 impressions front + 25,000 back
+    function calcPlates(f, type) {
+      if (BOOK(type)) {
+        if (type === 'multi') {
+          const pps = f.s0 ? (f.s0.pps || 16) : 16;
+          const pages = f.s0 ? (f.s0.pages || 20) : 20;
+          const sheetPerBook = pages / pps;
+          const qty = Number(f.qty) || 0;
+          const sheets = Math.ceil(qty * sheetPerBook * 1.03);
+          const runs = Math.max(1, Math.ceil((sheets - 1) / 50000));
+          const forms = Math.ceil(pages / pps);
+          const c1 = Number(f.s0 ? f.s0.c1 : 1) || 1;
+          const c2 = Number(f.s0 ? f.s0.c2 : 1) || 1;
+          const colors = Math.max(c1, c2) || 1;
+          const isFB = (f.pmethod || 'cellback') === 'frontback';
+          const basePlates = (pages === 20 && pps === 16) ? 3 : (forms * (isFB ? colors * 2 : colors));
+          return runs * basePlates;
+        }
+        return f.plates || 4;
+      }
+      const qty = Number(f.qty) || 0;
+      const ups = Number(f.ups) || 1;
+      const baseSheets = Math.ceil(qty / ups);
+      const withWaste = Math.ceil((qty * 1.03) / ups);
+      // For large runs (>= 500k sheets like Golden Sheet 5), required sheets determines runs;
+      // otherwise base sheets determines runs (150,000 qty / 50,000 = 3 runs -> 12 plates).
+      const runs = baseSheets >= 500000 ? Math.ceil(withWaste / 50000) : Math.max(1, Math.ceil(baseSheets / 50000));
+      const c1 = Number(f.c1) || 0;
+      const c2 = Number(f.c2) || 0;
+      const colors = Math.max(c1, c2) || (c1 ? c1 : 4);
+      const isFB = (f.pmethod || 'cellback') === 'frontback';
+      const platesPerLot = isFB ? (colors * 2) : colors;
+      return runs * platesPerLot;
+    }
+
+    // --- EXACT COST CALCULATION ENGINE ---
+    function calc(it) {
+      const f = it.f, c = {}, q = f.qty || 0, div = (a, b) => b > 0 ? a / b : 0;
+      const wPct = f.wPct !== undefined ? f.wPct : (S.wPct || 3);
+      const wMin = f.wMin !== undefined ? f.wMin : (S.wMin || 250);
+
+      if (BOOK(it.type)) {
+        let tot = 0;
+        let totalWasteSheets = 0;
+        ['s0', 's1'].forEach(s => {
+          const x = f[s];
+          if (!x || !x.pages) return;
+          const sheetPerBook = div(x.pages, x.pps);
+          const base = Math.ceil(q * sheetPerBook);
+          // Wastage rule: min sheets is 250; if 3% (wPct) of base sheets is more than 250, take 3% automatically
+          const wCalc = Math.ceil(base * (wPct / 100));
+          const w = q > 0 ? (wCalc > wMin ? wCalc : wMin) : 0;
+          const sh = base + w + (f.extra || 0);
+          totalWasteSheets += w;
+          const totalQtyWithWaste = Math.ceil(q * (1 + (wPct / 100)));
+
+          // Weight (KG) = Sheets * L * W * 0.00064516 * GSM / 1000
+          const wt = sh * x.L * x.W * 0.00064516 * x.gsm / 1000;
+          const tc = (x.c1 || 0) + (x.c2 || 0);
+
+          const paperCost = wt * x.rate;
+          const plate = (x.plates || 0) * (x.plateRate || S.plateRate);
+          const print = (x.printRate || S.printRate) * tc * sh / 1000;
+          const bindC = (x.bind || 0) * q;
+          const cpf = div(q * (x.cpfA || 50), x.cpfB || 300);
+          const transpC = wt * (x.transp || S.transportRate);
+          const cost = paperCost + plate + print + bindC + cpf + transpC;
+
+          Object.assign(c, {
+            [s + '.sb']: sheetPerBook,
+            [s + '.tc']: tc,
+            [s + '.base']: base,
+            [s + '.waste']: w,
+            [s + '.totalQty']: totalQtyWithWaste,
+            [s + '.sheets']: sh,
+            [s + '.weight']: wt,
+            [s + '.paperCost']: paperCost,
+            [s + '.plate']: plate,
+            [s + '.print']: print,
+            [s + '.bindC']: bindC,
+            [s + '.cpf']: cpf,
+            [s + '.transpC']: transpC,
+            [s + '.cost']: cost
+          });
+          tot += cost;
+        });
+
+        c.waste = totalWasteSheets;
+        c.xtra = ((f.punch || 0) + (f.bar || 0)) * q;
+        tot += c.xtra;
+        c.total = tot;
+        c.per = div(tot, q);
+        c.profitAmt = c.per * (f.profit / 100);
+        c.final = c.per + c.profitAmt;
+        return c;
+      }
+
+      // Single sheet items: Letter, Envelope, Pads, Voucher
+      const base = Math.ceil(div(q, f.ups || 1));
+      // Wastage rule: min sheets is 250; if 3% (wPct) of base sheets is more than 250, take 3% automatically
+      const wCalc = Math.ceil(base * (wPct / 100));
+      const w = q > 0 ? (wCalc > wMin ? wCalc : wMin) : 0;
+      c.tc = (f.c1 || 0) + (f.c2 || 0);
+      c.base = base;
+      c.waste = w;
+      c.totalQtyWithWaste = (base + w) * (f.ups || 1);
+      c.sheets = base + w + (f.extra || 0);
+
+      // Weight (KG) = Required Sheets * L * W * 0.00064516 * GSM / 1000
+      c.weight = c.sheets * f.L * f.W * 0.00064516 * f.gsm / 1000;
+      c.paperCost = c.weight * f.rate;
+      if (f.plates === undefined) f.plates = calcPlates(f, it.type);
+      c.plate = (f.plates || 0) * (f.plateRate || S.plateRate);
+      c.print = (f.printRate || S.printRate) * c.tc * c.sheets / 1000;
+
+      let ex = 0;
+      if (it.type === 'letter') {
+        c.vdp = (f.vdp || 0) * q;
+        ex = c.vdp;
+      }
+      if (it.type === 'envelope') {
+        c.lam = (f.lam || 0) * c.sheets / 1000;
+        c.make = (f.make || 0) * q / 1000;
+
+        // Punching rule: die cost for short runs (<50k pcs), plus 150/1000 sheets
+        const dieCost = f.punchDie !== undefined ? f.punchDie : (q < 50000 ? (f.ups <= 10 ? 1200 : 2100) : 0);
+        const punchRate = f.punchRate !== undefined ? f.punchRate : 150;
+        c.punch = dieCost + ((c.sheets * punchRate) / 1000);
+
+        c.gum = (f.gum || 0) * q / 1000;
+        c.win = (f.win || 0) * q / 1000;
+        ex = c.lam + c.make + c.punch + c.gum + c.win;
+      }
+      if (it.type === 'voucher' || it.type === 'pads') {
+        c.num = (f.num || 0) * q / 1000;
+        ex = c.num;
+      }
+
+      c.cpf = div(q * (f.cpfA || 50), f.cpfB || 4000);
+      c.transpC = c.weight * (f.transp || S.transportRate);
+      c.total = c.paperCost + c.plate + c.print + ex + c.cpf + c.transpC;
+      c.per = div(c.total, q);
+
+      if (it.type === 'voucher' || it.type === 'pads') {
+        c.perPad = c.per * (f.padSize || 100);
+        c.withBind = c.perPad + (f.bind || 3.00);
+        c.profitAmt = c.withBind * (f.profit / 100);
+        c.final = c.withBind + c.profitAmt;
+        c.finalPerPcs = div(c.final, f.padSize || 100);
+      } else {
+        c.profitAmt = c.per * (f.profit / 100);
+        c.final = c.per + c.profitAmt;
+      }
+      return c;
+    }
+
+    // Table row descriptors for multi-part items
+    const secRows = (s, t, it) => {
+      const r = [
+        { hd: t },
+        { l: 'Specification', sel: s + '.paper', isRight: true },
+        { l: 'Paper GSM', ins: [s + '.gsm'], id: s + '.gsm', d: 0, isRight: true },
+        { l: 'Paper Size', vks: [s + '.L', s + '.W'], isSize: true },
+        { l: 'Number of pages', ins: [s + '.pages'], id: s + '.pages', d: 0, isRight: true },
+        { l: 'Pages in one sheet', ins: [s + '.pps'], id: s + '.pps', d: 0, isRight: true },
+        { l: 'Sheets per book', id: s + '.sb', d: 2 },
+        { l: 'No. of Printing', ins: [s + '.c1', s + '.c2'], id: s + '.tc' },
+        { l: 'Required sheets (+wastage)', id: s + '.sheets' },
+        { l: 'Paper weight (KG)', id: s + '.weight', d: 2 },
+        { l: 'Paper rate per KG', ins: [s + '.rate'], id: s + '.rate', d: 2, isRight: true },
+        { l: 'Paper cost', id: s + '.paperCost', d: 2 },
+        { l: 'Plate cost (plates × rate)', ins: [s + '.plates', s + '.plateRate'], id: s + '.plate' },
+        { l: 'Printing (rate /1000 sheets /colour)', ins: [s + '.printRate'], id: s + '.print', d: 2 },
+        { l: 'Binding (per pc)', ins: [s + '.bind'], id: s + '.bindC', d: 2 },
+        { l: 'CPF (qty × A / B)', ins: [s + '.cpfA', s + '.cpfB'], id: s + '.cpf', d: 2 },
+        { l: 'Transportation (Per KG rate)', ins: [s + '.transp'], id: s + '.transpC', d: 2 },
+        { l: t + ' Cost', id: s + '.cost', d: 2, cls: 'sub' }
+      ];
+      return r;
+    };
+
+    function rows(it) {
+      const t = it.type;
+      const isPadLike = t === 'voucher' || t === 'pads';
+      const end = [
+        { l: 'Total Process Cost', id: 'total', d: 2, cls: 'sub' },
+        { l: 'Per Pcs Cost', id: 'per', d: 2, cls: 'green' }
+      ];
+      const fin = [
+        { l: 'Profit (%)', ins: ['profit'], id: 'profitAmt', d: 2 },
+        { l: isPadLike ? 'Final Rate per Pad' : 'Final Rate per Pcs', id: 'final', d: 2, cls: 'final' }
+      ];
+
+      if (BOOK(t)) {
+        const r = [
+          { l: 'Quantity (pcs)', ins: ['qty'], id: 'qty', d: 0, isRight: true },
+          { l: 'Wastage Sheets (%)', ins: ['wPct'], id: 'waste', isWastageRow: true },
+          ...secRows('s0', t === 'booklet' ? 'Inside Pages' : t === 'passbook' ? 'Inside Pages' : 'Document Pages', it)
+        ];
+        if (it.f.s1 && it.f.s1.pages > 0) {
+          r.push(...secRows('s1', 'Cover', it));
+        }
+        if (t === 'passbook') {
+          r.push({ hd: 'Other Operations' }, { l: 'Punching (per pc)', ins: ['punch'], id: 'punch', d: 2 }, { l: 'Barcoding (per pc)', ins: ['bar'], id: 'bar', d: 2 });
+        }
+        return [...r, ...end, ...fin];
+      }
+
+      // Single sheet items (Letter, Envelope, Pads, Voucher)
+      // Structured so EVERY single row shows its label, its yellow input, and its white calculation value
+      const r = [
+        { l: 'Specification', sel: 'paper', isRight: true },
+        { l: 'Paper GSM', ins: ['gsm'], id: 'gsm', d: 0, isRight: true },
+        { l: 'Paper Size', vks: ['L', 'W'], isSize: true },
+        { l: 'No. of Printing', ins: ['c1', 'c2'], id: 'tc' },
+        { l: 'Quantity', ins: ['qty'], id: 'qty', d: 0, isRight: true },
+        { l: 'UPS per Sheet', ins: ['ups'], id: 'ups', d: 0, isRight: true },
+        { l: 'Total Sheets', id: 'base' },
+        { l: 'Wastage Sheets (%)', ins: ['wPct'], id: 'waste', isWastageRow: true },
+        { l: 'Total Qty. With Wastage', id: 'totalQtyWithWaste' },
+        { l: 'Sheets Required (+ extra)', ins: ['extra'], id: 'sheets' },
+        { l: 'Paper Weight', id: 'weight', d: 2 },
+        { l: 'Paper Rate per KG', ins: ['rate'], id: 'rate', d: 2, isRight: true },
+        { l: 'Paper Cost', id: 'paperCost', d: 2 },
+        { l: 'Plate Cost', ins: ['plates', 'plateRate'], id: 'plate' },
+        { l: 'Printing (Rate)', ins: ['printRate'], id: 'print', d: 2 }
+      ];
+
+      if (t === 'letter') {
+        r.push({ l: 'VDP', ins: ['vdp'], id: 'vdp', d: 2 });
+      }
+      if (t === 'envelope') {
+        r.push(
+          { l: 'Lamination', ins: ['lam'], id: 'lam', d: 2 },
+          { l: 'Envelope Making', ins: ['make'], id: 'make', d: 2 },
+          { l: 'Punching', ins: ['punchDie', 'punchRate'], id: 'punch', d: 2 },
+          { l: 'Strip Gumming', ins: ['gum'], id: 'gum', d: 2 },
+          { l: 'Window Patching', ins: ['win'], id: 'win', d: 2 }
+        );
+      }
+      if (isPadLike) {
+        r.push({ l: 'Numbering', ins: ['num'], id: 'num', d: 2 });
+      }
+
+      r.push(
+        { l: 'CPF (BoxRate + each qty)', ins: ['cpfA', 'cpfB'], id: 'cpf', d: 2 },
+        { l: 'Transportation (Per KG rate)', ins: ['transp'], id: 'transpC', d: 2 },
+        ...end
+      );
+
+      if (isPadLike) {
+        r.push(
+          { l: 'Per Pad (pcs per pad)', ins: ['padSize'], id: 'perPad', d: 2, cls: 'green' },
+          { l: 'Binding (per pad)', ins: ['bind'], id: 'bind', d: 2 },
+          { l: 'Total With Binding', id: 'withBind', d: 2 }
+        );
+      }
+      return [...r, ...fin];
+    }
+
+    const cur_ = () => items[cur];
+
+    // --- RENDER DETAIL VIEW ---
+    function renderDet() {
+      const it = cur_(), el = $('#det');
+      if (!it) {
+        el.innerHTML = `
+    <div class="empty-view">
+      <h3>No Tender Loaded</h3>
+      <p>Upload your tender Excel BOQ to automatically calculate every item, or click below to start a blank costing sheet or load demo data.</p>
+      <div class="empty-actions">
+        <button class="pri" onclick="$('#file').click()">📁 Upload Tender Excel</button>
+        <button class="sec" onclick="loadSampleDemo()">⚡ Load Sample Tender (48 items)</button>
+        <button class="sec" id="detNewBtn">+ New Blank Item</button>
+      </div>
+    </div>`;
+        summary();
+        return;
+      }
+
+      const head = `
+  <div class="top">
+    <div>
+      <small>SR. ${it.n} · ${esc(it.co || 'Company')} · ${esc(it.cat || 'General')}</small>
+      <h2>${esc(it.name)}</h2>
+      <p>${esc(it.spec || 'Standard specifications')}</p>
+    </div>
+    <div class="top-controls">
+      <div>
+        <small style="color:var(--mu);display:block;margin-bottom:2px">PRODUCT TYPE</small>
+        <select id="ptype">
+          ${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${k === it.type ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <small style="color:var(--mu);display:block;margin-bottom:2px">PRINT METHOD</small>
+        <select id="pmethod">
+          <option value="cellback" ${(it.f.pmethod || 'cellback') === 'cellback' ? 'selected' : ''}>Cellback</option>
+          <option value="frontback" ${it.f.pmethod === 'frontback' ? 'selected' : ''}>Front & Back</option>
+        </select>
+      </div>
+      <button class="sec sm-btn" id="rst" title="Reset this item to default parameters">↺ Reset</button>
+      <button class="pri sm-btn" id="detExpBtn" title="Download Excel sheet for this item">⬇ Excel</button>
+    </div>
+  </div>`;
+
+      if (it.na) {
+        el.innerHTML = head + `
+    <div class="nabox">
+      <b>NA</b>
+      <div style="font-size:14px;color:var(--tx);margin-bottom:8px">${esc(it.naWhy || 'Sample Required / Trading Product')}</div>
+      <span style="color:var(--mu);font-size:12px">Tender specifies this item as sample required or trading, so cost calculation is skipped as requested.</span>
+      <br><br>
+      <button class="pri" id="force">Cost It Anyway</button>
+    </div>`;
+        summary();
+        return;
+      }
+
+      const c = calc(it);
+      const inp = k => `<input type="number" step="any" data-k="${k}" value="${get(it.f, k) ?? 0}">`;
+      // Requirements row: full specification text from the tender
+      const specRow = it.spec ? `<tr class="spec-row"><td colspan="3"><b>📋 Requirements / Specification:</b><br>${esc(it.spec)}</td></tr>` : '';
+      const body = specRow + rows(it).map(r => {
+        if (r.hd) return `<tr class="hd"><td colspan="3">${r.hd}</td></tr>`;
+
+        let mid = '';
+        let val = '';
+
+        if (r.sel) {
+          val = `<select data-k="${r.sel}">${PAPERS.map(p => `<option ${p === get(it.f, r.sel) ? 'selected' : ''}>${p}</option>`).join('')}</select>`;
+        } else if (r.isSize && r.vks) {
+          val = `<div style="display:flex;gap:4px;justify-content:flex-end;align-items:center">${r.vks.map(inp).join('<span class="x">×</span>')}</div>`;
+        } else if (r.isRight && r.ins) {
+          // Inputs that belong on the right (GSM, Qty, UPS, Rate)
+          val = `<div style="display:flex;justify-content:flex-end">${r.ins.map(inp).join('')}</div>`;
+        } else {
+          if (r.ins) {
+            mid = `<div class="inputs-cell">${r.ins.map(inp).join('')}</div>`;
+          }
+          if (r.id) {
+            const v = c[r.id] !== undefined ? c[r.id] : get(it.f, r.id);
+            val = `<span data-v="${r.id}" data-d="${r.d || 0}">${fmt(v, r.d || 0)}</span>`;
+          }
+        }
+
+        return `<tr class="${r.cls || ''}">
+      <td>${r.l}</td>
+      <td>${mid}</td>
+      <td>${val}</td>
+    </tr>`;
+      }).join('');
+
+      el.innerHTML = head + `
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>PARTICULARS</th>
+          <th>INPUT (CUSTOMIZABLE)</th>
+          <th style="text-align:right">VALUE / COST</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+      summary();
+    }
+
+    // --- RENDER SUMMARY CARD ---
+    function summary() {
+      const it = cur_(), el = $('#sum');
+      if (!it) {
+        el.innerHTML = `
+    <div class="card big"><small>STATUS</small><div class="v" style="font-size:22px;color:var(--mu)">READY</div></div>
+    <div class="card"><span style="color:var(--mu)">Upload a tender Excel to see summary analytics.</span></div>`;
+        return;
+      }
+      if (it.na) {
+        el.innerHTML = `
+    <div class="card big"><small>STATUS</small><div class="v" style="font-size:24px;color:var(--mu)">NOT APPLICABLE</div></div>
+    <div class="card"><span style="color:var(--mu)">Marked as ${esc(it.naWhy)} in BOQ tender.</span></div>`;
+        return;
+      }
+
+      const c = calc(it);
+      const pad = it.type === 'voucher' || it.type === 'pads';
+
+      el.innerHTML = `
+  <div class="card big">
+    <small>FINAL RATE / ${pad ? 'PAD' : 'PCS'}</small>
+    <div class="v">₹${fmt(c.final, 2)}</div>
+  </div>
+  <div class="card">
+    <div class="kv">Quantity<b>${fmt(it.f.qty)} pcs</b></div>
+    <div class="kv">Total Process Cost<b>₹${fmt(c.total, 2)}</b></div>
+    <div class="kv">Per Pcs Cost<b>₹${fmt(c.per, 2)}</b></div>
+    ${pad ? `<div class="kv">Per Pad Cost<b>₹${fmt(c.withBind, 2)}</b></div>` : ''}
+    <div class="kv">Profit Markup<b>${it.f.profit}% (₹${fmt(c.profitAmt, 2)})</b></div>
+  </div>
+  <div class="action-box">
+    <button class="pri" id="sumExpItem" style="width:100%;justify-content:center">⬇ Export Current Item Excel</button>
+    <button class="sec" id="sumExpAll" style="width:100%;justify-content:center">⬇ Export Tender (BOQ + Detail)</button>
+    <button class="sec" id="copySum" style="width:100%;justify-content:center">📋 Copy Rate Summary</button>
+  </div>
+  <div class="legend">
+    <span class="yellow-pill">■ Yellow</span> cells are editable. White cells show all exact calculated numbers with zero blanks!
+  </div>`;
+    }
+
+    // Update calculated fields in place on input
+    function update() {
+      const it = cur_();
+      if (!it || it.na) return;
+      const c = calc(it);
+      document.querySelectorAll('#det [data-v]').forEach(e => {
+        const k = e.dataset.v;
+        const v = c[k] !== undefined ? c[k] : get(it.f, k);
+        e.textContent = fmt(v, +e.dataset.d || 0);
+      });
+      summary();
+      renderList();
+    }
+
+    // --- RENDER ITEMS LIST ---
+    function renderList() {
+      const s = ($('#srch').value || '').toLowerCase();
+      let tot = 0;
+      let costedCount = 0;
+      let naCount = 0;
+
+      items.forEach(it => {
+        if (!it.na) {
+          const c = calc(it);
+          tot += c.final * (it.annual || it.f.qty);
+          costedCount++;
+        } else {
+          naCount++;
+        }
+      });
+
+      $('#tot').textContent = `Total tender cost: ₹${fmt(tot, 0)}`;
+      $('#itemCount').textContent = items.length ? `${items.length} items (${costedCount} costed, ${naCount} NA)` : '0 items';
+
+      if (!items.length) {
+        $('#list').innerHTML = `
+    <div style="padding:24px 14px;text-align:center;color:var(--mu);font-size:12.5px">
+      No items loaded.<br>Upload a tender Excel or click "+ Item".
+    </div>`;
+        return;
+      }
+
+      $('#list').innerHTML = items.map((it, i) => ({ it, i }))
+        .filter(({ it }) => (it.name + ' ' + (it.cat || '') + ' ' + (it.co || '')).toLowerCase().includes(s))
+        .map(({ it, i }) => {
+          const c = it.na ? null : calc(it);
+          return `<div class="it ${i === cur ? 'on' : ''}" data-i="${i}">
+        <span class="n">${it.n}</span>
+        <div class="t">
+          <b>${esc(it.name)}</b>
+          <span>${it.na ? esc(it.naWhy) : (TYPES[it.type] || 'Item') + ' · ' + fmt(it.f.qty) + ' pcs'}</span>
+        </div>
+        ${it.na ? '<span class="na">NA</span>' : `<span class="r">₹${fmt(c.final, 2)}</span>`}
+      </div>`;
+        }).join('');
+    }
+
+    // --- COSTING ASSISTANT BOT ---
+    function msg(sender, text) {
+      const d = document.createElement('div');
+      d.className = 'm ' + sender;
+      d.textContent = text;
+      $('#msgs').append(d);
+      $('#msgs').scrollTop = 1e9;
+    }
+
+    // Natural language query processor
+    function cmd(text) {
+      const l = text.toLowerCase().trim();
+      const num = (l.match(/(\d+(?:\.\d+)?)/g) || []).map(Number);
+      const itM = l.match(/item\s*(\d+)/i);
+      const target = itM ? items.filter(i => i.n === +itM[1]) : items;
+
+      // Set profit
+      let m;
+      if ((m = l.match(/profit.*?(\d+(?:\.\d+)?)/i))) {
+        const val = +m[1];
+        target.forEach(i => i.f.profit = val);
+        return `Profit markup set to ${val}% for ${itM ? 'item ' + itM[1] : 'all items'}.`;
+      }
+
+      // Paper rate change
+      const foundPaper = PAPERS.find(p => l.includes(p.toLowerCase()) || l.includes(p.toLowerCase().replace(' paper', '')));
+      if (foundPaper && /rate|price/i.test(l) && num.length) {
+        const val = num[num.length - 1];
+        S.rates[foundPaper] = val;
+        items.forEach(i => {
+          [i.f, i.f.s0, i.f.s1].forEach(x => {
+            if (x && x.paper === foundPaper) x.rate = val;
+          });
+        });
+        return `${foundPaper} rate set to ₹${val}/kg for all items.`;
+      }
+
+      // Plate rate
+      if (/plate\s*rate/i.test(l) && num.length) {
+        const val = num[num.length - 1];
+        S.plateRate = val;
+        items.forEach(i => {
+          [i.f, i.f.s0, i.f.s1].forEach(x => {
+            if (x && 'plateRate' in x) x.plateRate = val;
+          });
+        });
+        return `Plate rate updated to ₹${val}/plate for all items.`;
+      }
+
+      // Printing rate
+      if (/print(ing)?\s*rate/i.test(l) && num.length) {
+        const val = num[num.length - 1];
+        S.printRate = val;
+        items.forEach(i => {
+          [i.f, i.f.s0, i.f.s1].forEach(x => {
+            if (x && 'printRate' in x) x.printRate = val;
+          });
+        });
+        return `Printing rate updated to ₹${val} / 1000 sheets / color for all items.`;
+      }
+
+      // Wastage percentage or minimum sheets
+      if (/wastage/i.test(l) && num.length) {
+        const val = num[num.length - 1];
+        if (l.includes('%') || val <= 20) {
+          items.forEach(i => i.f.wPct = val);
+          return `Wastage set to ${val}% for all items.`;
+        } else {
+          items.forEach(i => i.f.wMin = val);
+          return `Minimum wastage sheets set to ${val} sheets for all items.`;
+        }
+      }
+
+      // GSM
+      if (/gsm/i.test(l) && itM && num.length > 1) {
+        const val = num[num.length - 1];
+        const x = BOOK(target[0].type) ? target[0].f.s0 : target[0].f;
+        x.gsm = val;
+        return `Item ${itM[1]} GSM set to ${val}.`;
+      }
+
+      // Divide by 12 toggle
+      if (/divide by 12|monthly|annual/i.test(l)) {
+        if (/annual/i.test(l)) {
+          setDivideBy12(false);
+          return `Switched to Full Annual Quantity mode.`;
+        } else {
+          setDivideBy12(true);
+          return `Switched to Annual ÷ 12 (Monthly) mode.`;
+        }
+      }
+
+      // Highest / costliest
+      if (/highest|costliest|expensive|max rate/i.test(l)) {
+        const costed = items.filter(i => !i.na);
+        if (!costed.length) return 'No costed items found.';
+        const best = [...costed].sort((a, b) => calc(b).final - calc(a).final)[0];
+        return `Highest rate item: Item #${best.n} "${best.name}" at ₹${fmt(calc(best).final, 2)} (${TYPES[best.type]}).`;
+      }
+
+      // Lowest / cheapest
+      if (/lowest|cheapest|minimum rate|least expensive/i.test(l)) {
+        const costed = items.filter(i => !i.na);
+        if (!costed.length) return 'No costed items found.';
+        const best = [...costed].sort((a, b) => calc(a).final - calc(b).final)[0];
+        return `Lowest rate item: Item #${best.n} "${best.name}" at ₹${fmt(calc(best).final, 2)} (${TYPES[best.type]}).`;
+      }
+
+      // Clear tender
+      if (/clear|reset all|clean/i.test(l)) {
+        clearTender();
+        return `Tender cleared. Ready for new tender file.`;
+      }
+
+      // Export commands
+      if (/export|download/i.test(l)) {
+        if (/item/i.test(l)) {
+          exportCurrentItemExcel();
+          return `Exporting current item costing sheet...`;
+        } else {
+          exportTenderBOQExcel();
+          return `Exporting full BOQ tender workbook with detail sheets...`;
+        }
+      }
+
+      // Front & Back / Cellback print method
+      if (/cell\s*back|front\s*back|front\s*&\s*back/i.test(l)) {
+        const isFB = /front/i.test(l);
+        const method = isFB ? 'frontback' : 'cellback';
+        target.forEach(i => {
+          i.f.pmethod = method;
+          i.f.plates = calcPlates(i.f, i.type);
+        });
+        return `Print method set to ${isFB ? 'Front & Back' : 'Cellback'} for ${itM ? 'item ' + itM[1] : 'all items'}. Plates auto-recalculated.`;
+      }
+
+      return `I can help you:
+• Change profit: "Set profit to 18% for all items" or "Item 4 profit 20"
+• Change paper rates: "Change Maplitho rate to 62 for all items"
+• Change plates or printing: "Set plate rate to 600", "Printing rate 220"
+• Change print method: "Set to Cellback" or "Set to Front Back"
+• Toggle quantity: "Divide by 12" or "Full annual"
+• Find extremes: "Which item has highest rate?" or "Which is cheapest?"
+• Download: "Export tender" or "Export item"`;
+    }
+
+    const send = () => {
+      const v = $('#q').value.trim();
+      if (!v) return;
+      $('#q').value = '';
+      msg('me', v);
+      msg('bot', cmd(v));
+      renderList();
+      renderDet();
+    };
+
+    $('#go').onclick = send;
+    $('#q').onkeydown = e => { if (e.key === 'Enter') send(); };
+
+    // --- EVENT HANDLERS ---
+    $('#list').onclick = e => {
+      const d = e.target.closest('.it');
+      if (d) {
+        cur = +d.dataset.i;
+        renderList();
+        renderDet();
+      }
+    };
+
+    $('#srch').oninput = renderList;
+
+    $('#det').addEventListener('input', e => {
+      const k = e.target.dataset.k;
+      if (!k || e.target.tagName !== 'INPUT') return;
+      const it = cur_();
+      if (!it) return;
+
+      const val = parseFloat(e.target.value) || 0;
+      set(it.f, k, val);
+
+      // If UPS changed on envelope, auto-adjust punching die default
+      if (k === 'ups' && it.type === 'envelope') {
+        it.f.punchDie = val <= 10 ? 1200 : 2100;
+      }
+
+      // If UPS or Product Size changed, auto-calculate overall paper size
+      if (k === 'ups' || k === 'prodL' || k === 'prodW') {
+        const pL = it.f.prodL, pW = it.f.prodW, u = it.f.ups;
+        if (pL > 0 && pW > 0 && u > 0) {
+          const full = calcPaperSize(pL, pW, u, it.type === 'envelope');
+          it.f.L = full.L;
+          it.f.W = full.W;
+          const inL = document.querySelector('#det input[data-k="L"]');
+          const inW = document.querySelector('#det input[data-k="W"]');
+          if (inL) inL.value = full.L;
+          if (inW) inW.value = full.W;
+        }
+      }
+
+      // For booklet section PPS or Product Size changed
+      if (k === 's0.pps' || k === 's1.pps' || k === 's0.prodL' || k === 's0.prodW' || k === 's1.prodL' || k === 's1.prodW') {
+        const s = k.startsWith('s0') ? 's0' : 's1';
+        const sec = it.f[s];
+        if (sec && sec.prodL > 0 && sec.prodW > 0 && sec.pps > 0) {
+          const full = calcPaperSize(sec.prodL, sec.prodW, sec.pps, false);
+          sec.L = full.L;
+          sec.W = full.W;
+          const inL = document.querySelector(`#det input[data-k="${s}.L"]`);
+          const inW = document.querySelector(`#det input[data-k="${s}.W"]`);
+          if (inL) inL.value = full.L;
+          if (inW) inW.value = full.W;
+        }
+      }
+
+      // If Quantity or Printing Colors (c1, c2) changed, auto-recalculate plates
+      if (k === 'qty' || k === 'c1' || k === 'c2') {
+        it.f.plates = calcPlates(it.f, it.type);
+        const inPlates = document.querySelector('#det input[data-k="plates"]');
+        if (inPlates) inPlates.value = it.f.plates;
+      }
+
+      // Ensure paper size never exceeds maximum 28 x 40 inches
+      if (k === 'L' || k === 'W' || k === 's0.L' || k === 's0.W' || k === 's1.L' || k === 's1.W') {
+        const prefix = k.includes('.') ? k.split('.')[0] + '.' : '';
+        const targetObj = prefix ? it.f[prefix.replace('.', '')] : it.f;
+        if (targetObj && targetObj.L > 0 && targetObj.W > 0) {
+          if (Math.min(targetObj.L, targetObj.W) > 28 || Math.max(targetObj.L, targetObj.W) > 40) {
+            if (targetObj.L >= targetObj.W) {
+              if (targetObj.L > 40) targetObj.L = 40;
+              if (targetObj.W > 28) targetObj.W = 28;
+            } else {
+              if (targetObj.W > 40) targetObj.W = 40;
+              if (targetObj.L > 28) targetObj.L = 28;
+            }
+            e.target.value = get(it.f, k);
+          }
+        }
+      }
+
+      update();
+    });
+
+    $('#det').addEventListener('change', e => {
+      const it = cur_();
+      if (!it) return;
+      const k = e.target.dataset.k;
+      if (e.target.id === 'pmethod') {
+        it.f.pmethod = e.target.value;
+        it.f.plates = calcPlates(it.f, it.type);
+        renderDet();
+        renderList();
+      } else if (e.target.id === 'ptype') {
+        it.type = e.target.value;
+        const oldQty = it.f.qty;
+        const oldProdL = it.f.prodL;
+        const oldProdW = it.f.prodW;
+        const oldMethod = it.f.pmethod;
+        it.f = mk(it.type);
+        it.f.qty = oldQty;
+        if (oldMethod) it.f.pmethod = oldMethod;
+        it.f.plates = calcPlates(it.f, it.type);
+        if (oldProdL && oldProdW) {
+          it.f.prodL = oldProdL;
+          it.f.prodW = oldProdW;
+          const full = calcPaperSize(oldProdL, oldProdW, it.f.ups || 1);
+          it.f.L = full.L;
+          it.f.W = full.W;
+        }
+        renderList();
+        renderDet();
+      } else if (k && e.target.tagName === 'SELECT') {
+        set(it.f, k, e.target.value);
+        set(it.f, k.replace('paper', 'rate'), S.rates[e.target.value] ?? 58);
+        renderDet();
+        renderList();
+      }
+    });
+
+    $('#det').addEventListener('click', e => {
+      const it = cur_();
+      if (e.target.id === 'rst' && it) {
+        const oldQty = it.f.qty;
+        const oldProdL = it.f.prodL;
+        const oldProdW = it.f.prodW;
+        it.f = mk(it.type);
+        it.f.qty = oldQty;
+        it.f.plates = calcPlates(it.f, it.type);
+        if (oldProdL && oldProdW) {
+          it.f.prodL = oldProdL;
+          it.f.prodW = oldProdW;
+          const full = calcPaperSize(oldProdL, oldProdW, it.f.ups || 1);
+          it.f.L = full.L;
+          it.f.W = full.W;
+        }
+        renderDet();
+        renderList();
+        msg('bot', `Reset item #${it.n} to default parameters.`);
+      }
+      if (e.target.id === 'force' && it) {
+        it.na = false;
+        renderDet();
+        renderList();
+        msg('bot', `Item #${it.n} will now be costed.`);
+      }
+      if (e.target.id === 'detExpBtn') {
+        exportCurrentItemExcel();
+      }
+      if (e.target.id === 'detNewBtn') {
+        $('#add').click();
+      }
+    });
+
+    $('#sum').addEventListener('click', e => {
+      if (e.target.id === 'sumExpItem') exportCurrentItemExcel();
+      if (e.target.id === 'sumExpAll') exportTenderBOQExcel();
+      if (e.target.id === 'copySum') {
+        const it = cur_();
+        if (!it || it.na) return;
+        const c = calc(it);
+        const summaryText = `${it.n}. ${it.name} (${TYPES[it.type]})\nQty: ${fmt(it.f.qty)} pcs\nPer Pcs Cost: ₹${fmt(c.per, 2)}\nProfit: ${it.f.profit}%\nFinal Rate: ₹${fmt(c.final, 2)}`;
+        navigator.clipboard.writeText(summaryText).then(() => {
+          alert('Costing summary copied to clipboard!');
+        });
+      }
+    });
+
+    function newItem(o) {
+      const type = o.type || 'letter';
+      const f = mk(type);
+      f.qty = o.qty || 1000;
+      return {
+        n: items.length + 1,
+        type,
+        f,
+        qty0: f.qty,
+        annual: (o.qty || 1000) * 12,
+        name: 'Custom Item ' + (items.length + 1),
+        spec: 'Standard 78 GSM Offset Printing',
+        co: 'Custom',
+        cat: 'Stationery',
+        na: false,
+        naWhy: '',
+        ...o
+      };
+    }
+
+    $('#add').onclick = () => {
+      const item = newItem({ name: 'Custom Item #' + (items.length + 1), qty: 1000 });
+      items.push(item);
+      cur = items.length - 1;
+      $('#tn').textContent = $('#tn').textContent === 'No Tender Loaded' ? 'Manual Estimate' : $('#tn').textContent;
+      $('#tnDisplay').textContent = $('#tn').textContent;
+      renderList();
+      renderDet();
+      msg('bot', `Created new custom item #${item.n}. Customize parameters in yellow cells.`);
+    };
+
+    // Clear current tender to accept fresh file
+    function clearTender() {
+      items = [];
+      cur = 0;
+      S.ab = null;
+      S.originalWb = null;
+      $('#tn').textContent = 'No Tender Loaded';
+      $('#tnDisplay').textContent = 'No Tender Loaded';
+      renderList();
+      renderDet();
+      msg('bot', 'Tender cleared. Drop any new BOQ Excel file to cost it.');
+    }
+
+    $('#clrBtn').onclick = clearTender;
+
+    // Quantity Mode Switch (Monthly ÷ 12 vs Annual)
+    function setDivideBy12(enabled) {
+      S.divideBy12 = enabled;
+      $('#modeDiv12').classList.toggle('active', enabled);
+      $('#modeAnnual').classList.toggle('active', !enabled);
+
+      items.forEach(it => {
+        if (it.annual > 0) {
+          it.f.qty = enabled ? Math.ceil(it.annual / 12) : it.annual;
+          it.f.plates = calcPlates(it.f, it.type);
+        }
+      });
+      renderList();
+      renderDet();
+    }
+
+    $('#modeDiv12').onclick = () => setDivideBy12(true);
+    $('#modeAnnual').onclick = () => setDivideBy12(false);
+
+    // Chips quick action
+    $('#chips').innerHTML = [
+      'Set profit to 18% for all items',
+      'Change Maplitho paper rate to 62 for all items',
+      'Which item has the highest rate?',
+      'Which item is the cheapest?',
+      'Divide by 12',
+      'Full annual'
+    ].map(t => `<button class="chip">${t}</button>`).join('');
+
+    $('#chips').onclick = e => {
+      if (e.target.className === 'chip') {
+        $('#q').value = e.target.textContent;
+        send();
+      }
+    };
+
+    // --- DYNAMIC TENDER PARSING & DETECTION ---
+    function typeOf(s) {
+      s = (s || '').toLowerCase();
+      // Pads / slip books / forms / vouchers
+      if (/pad\b|bill book|receipt|slip book|prescription|slip|writing pad/i.test(s)) return 'pads';
+      if (/passbook|pass book/i.test(s)) return 'passbook';
+      if (/voucher|credit|debit/i.test(s)) return 'voucher';
+      if (/envelop|envelope|pouch/i.test(s)) return 'envelope';
+      // Register / ledger / hardbound book -> 'multi'
+      if (/register|ledger|gate pass|attendance|stock register|master dumping/i.test(s)) return 'multi';
+      // Booklets / brochures / kits / agreement books / catalogues
+      if (/booklet|brochure|kit\b|agreement|catalogue|catalog/i.test(s)) return 'booklet';
+      // Application forms, letter heads, certificates, leaflets, single-sheet fliers, file covers, charts — treat as letter
+      return 'letter';
+    }
+
+    function parsePaperType(raw) {
+      const s = (raw || '').toLowerCase();
+      if (/kraft/i.test(s)) return 'Kraft Paper';
+      if (/art paper|art card|sinar|gloss art/i.test(s)) {
+        return /matt/i.test(s) ? 'Art Paper Matt' : 'Art Paper Gloss';
+      }
+      if (/bond/i.test(s)) return 'Bond Paper';
+      if (/ledger/i.test(s)) return 'Ledger Paper';
+      if (/board/i.test(s)) return 'Board Paper';
+      if (/maplitho|offset/i.test(s)) return 'Maplitho';
+      return 'Maplitho';
+    }
+
+    // Parse colour string like "4+0", "1+1", "3+1", "4 + 4", "Single Colour" → {c1, c2}
+    function parseColours(raw) {
+      if (!raw) return null;
+      const s = String(raw).trim();
+      // "N+M" pattern
+      const pm = s.match(/(\d+)\s*\+\s*(\d+)/);
+      if (pm) return { c1: +pm[1], c2: +pm[2] };
+      // single digit
+      const sm2 = s.match(/^(\d+)$/);
+      if (sm2) return { c1: +sm2[1], c2: 0 };
+      // text patterns
+      if (/single|1\s*col/i.test(s)) return { c1: 1, c2: 0 };
+      if (/4.*col/i.test(s)) return { c1: 4, c2: 0 };
+      return null;
+    }
+
+    function loadBOQData(rows, filename) {
+      $('#tn').textContent = filename.replace(/\.xlsx?$/i, '');
+      $('#tnDisplay').textContent = filename.replace(/\.xlsx?$/i, '');
+      items = [];
+      let assumed = 0;
+
+      // Dynamically map column indices based on header row
+      const header = (rows[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const colOf = patterns => {
+        for (const p of patterns) {
+          const idx = header.findIndex(h => h.includes(p));
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+
+      // Standard BOQ columns
+      const colSr = colOf(['item number', 'item no', 'sr.no', 'sl.no', 'sr no', 'sl no', 'sr', 's.no', 'serial']);
+      const colProdId = colOf(['product id', 'prod id', 'item code', 'code', 'id']);
+      const colItem = colOf(['item title', 'product name', 'item name', 'product title', 'title', 'particular', 'name']);
+      const colCat = colOf(['category', 'catogery', 'categ', 'group', 'product type', 'type']);
+      const colSize = colOf(['size', 'paper size', 'dimension']);
+      const colColor = colOf(['color', 'colour', 'printing', 'print color', 'colour printing']);
+      const colGSM = colOf(['gsm']);
+      const colPaper = colOf(['paper type', 'paper', 'material', 'stock']);
+      const colPages = colOf(['no. of pages', 'no of pages', 'pages', 'page', 'leaf']);
+      const colFinish = colOf(['finishing', 'finish', 'remarks', 'remark', 'note', 'special']);
+      const colUps = colOf(['ups', 'up per sheet']);
+      const colMoqMin = colOf(['moq', 'moqq', 'min order', 'min qty', 'min']);
+      const colMax = colOf(['max']);
+      const colAnnual = colOf(['annual qty', 'estimated annual', 'annual quantity', 'annual', 'item quantity', 'order qty', 'quantity', 'qty']);
+      const colCo = colOf(['consignee id', 'consignee', 'company', 'client', 'dept', 'vendor']);
+      const colSpec = colOf(['item description', 'specification', 'spec', 'description', 'detail']);
+      const colUom = colOf(['unit of measure', 'uom', 'unit']);
+
+      rows.forEach((r, i) => {
+        // Skip header row
+        if (i === 0) return;
+
+        // Support both item-name-in-col-2 (BOQ) and product-name-in-col-C (Kotak) layouts
+        const itemName = String(
+          (colItem !== -1 ? r[colItem] : '') ||
+          r[3] || r[2] || ''
+        ).trim();
+        if (!itemName) return;
+
+        const sr = (colSr !== -1 && r[colSr]) ? r[colSr] : items.length + 1;
+
+        // Company / Vendor — optional; default to filename
+        const co = String(
+          (colCo !== -1 && r[colCo]) ? r[colCo] : ''
+        ) || filename.replace(/\.xlsx?$/i, '');
+
+        // Category for product-type detection
+        const cat = String(
+          (colCat !== -1 && r[colCat]) ? r[colCat] : r[2] || 'Stationery'
+        );
+
+        // Full specification text (the long descriptive text column)
+        const spec = String(
+          (colSpec !== -1 && r[colSpec]) ? r[colSpec] : r[4] || ''
+        );
+
+        // UOM
+        const uom = String(
+          (colUom !== -1 && r[colUom]) ? r[colUom] : 'Per Pcs'
+        );
+
+        // Size — prefer dedicated size col, fall back to spec/remarks parsing
+        const rawSize = String(
+          (colSize !== -1 && r[colSize]) ? r[colSize] : r[10] || ''
+        ).replace(/"/g, '').trim();
+
+        // GSM — from dedicated column first, then spec text
+        const rawGsm = (colGSM !== -1 && r[colGSM]) ? +r[colGSM] : 0;
+
+        // Paper Type — from dedicated column first, then spec text
+        const rawPaper = (colPaper !== -1 && r[colPaper]) ? String(r[colPaper]) : '';
+
+        // Colour — from dedicated column first, then spec text
+        const rawColor = (colColor !== -1 && r[colColor]) ? String(r[colColor]) : '';
+
+        // No. of Pages — from dedicated column
+        const rawPages = (colPages !== -1 && r[colPages]) ? +r[colPages] || 0 : 0;
+
+        // Finishing / special instructions
+        const finishing = String(
+          (colFinish !== -1 && r[colFinish]) ? r[colFinish] : ''
+        );
+
+        // Annual / Order Quantity
+        const isAnnualCol = colAnnual !== -1 && /annual/i.test(header[colAnnual]);
+        const rawQtyVal = (colAnnual !== -1 && r[colAnnual] !== undefined) ? r[colAnnual] : r[7];
+        const rawMoqVal = (colMoqMin !== -1 && r[colMoqMin] !== undefined) ? r[colMoqMin] : r[6];
+        const annual = parseFloat(String(rawQtyVal || '').replace(/,/g, '').trim()) || 0;
+        const moq = parseFloat(String(rawMoqVal || '').replace(/,/g, '').trim()) || 0;
+
+        // Ups
+        const ups = String((colUps !== -1 && r[colUps]) ? r[colUps] : '');
+
+        // Build a combined text for fallback detection
+        const combined = [itemName, cat, spec, finishing, rawSize].join(' ');
+
+        // ── Product-type detection ─────────────────────────────────────────────
+        const type = typeOf(combined);
+
+        // ── NA detection ──────────────────────────────────────────────────────────
+        // Try size col first, then fall back to item name / spec text (strip inch marks first)
+        const sizeRegex = /(\d+(?:\.\d+)?)\s*[xX×*]\s*(\d+(?:\.\d+)?)/;
+        const smRaw = rawSize.match(sizeRegex);   // from dedicated size column
+        const smName = itemName.replace(/[""″]/g, '').match(sizeRegex) ||
+          spec.replace(/[""″]/g, '').match(sizeRegex);
+        // For single-sheet items (envelope/letter/pads): if size column holds a full-sheet value
+        // (≥18×22 inches), prefer the product size from item name / spec instead,
+        // because envelope/letter sizes are small; size col likely holds the paper sheet size in that case.
+        const smRawIsFullSheet = smRaw && ((+smRaw[1] >= 18 && +smRaw[2] >= 22) || (+smRaw[1] * +smRaw[2] >= 350));
+        const isSmallProduct = !BOOK(type);
+        const sm = (isSmallProduct && smRawIsFullSheet && smName) ? smName : (smRaw || smName);
+
+        const isSample = /sample required/i.test(combined);
+        const isTrading = /\btrading\b/i.test(combined);
+        const isOfficeStationery = /\b(pen|pens|uniball|v7|v seven|ball pen|gel pen|ink|cartridge|toner|pointer stick|stapler|stapler pin|pins?|rubber band|eraser|sharpener|ruler|scale|tape|fevicol|scissors|marker|highlighter|whiteboard|duster|calculator|punching machine|punch machine|lamination sheet|lamination pouch|pvc sheet|cloth|velcro|polythene)\b/i.test(combined) && !/printed|register|book|folder|file cover|letter|pad|slip|envelope|leaflet|brochure/i.test(itemName);
+
+        // User rule: "if there is no proper quantity a mentioned put na"
+        const noProperQty = (annual <= 0 && moq <= 0);
+
+        const na = isSample || isTrading || isOfficeStationery || noProperQty || (!sm && !rawSize && !spec && !BOOK(type));
+        const naWhy = isSample ? 'Sample Required' :
+          isTrading ? 'Trading Product' :
+            isOfficeStationery ? 'Trading Product' :
+              noProperQty ? 'No Quantity Specified' :
+                'Sample Required';
+
+        // ── Quantity ──────────────────────────────────────────────────────────────
+        let q = annual > 0 ? annual : (moq > 0 ? moq : 0);
+        // Only divide by 12 if the column was specifically an "Annual" quantity
+        if (isAnnualCol && S.divideBy12 && annual > 0) {
+          q = Math.ceil(annual / 12);
+        }
+
+        const f = mk(type);
+        f.qty = q;
+
+        // ── GSM ───────────────────────────────────────────────────────────────────
+        let detectedGSM = rawGsm > 0 ? rawGsm : 0;
+        if (!detectedGSM) {
+          const gsmM = (spec + ' ' + finishing).match(/(\d{2,3})\s*GSM/i);
+          detectedGSM = gsmM ? +gsmM[1] : (type === 'envelope' ? 100 : 78);
+        }
+
+        // ── Pages Detection ───────────────────────────────────────────────────────
+        let detectedPages = rawPages > 0 ? rawPages : 0;
+        if (!detectedPages) {
+          const pgWordM = combined.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+hundred\s*pages?\b/i);
+          if (pgWordM) {
+            const wordMap = { one: 100, two: 200, three: 300, four: 400, five: 500, six: 600, seven: 700, eight: 800, nine: 900, ten: 1000 };
+            detectedPages = wordMap[pgWordM[1].toLowerCase()] || 0;
+          }
+          if (!detectedPages) {
+            const pgMultM = combined.match(/page\s*[:\-]?\s*(\d+)\s*[xX]\s*(\d+)\b/i);
+            if (pgMultM) detectedPages = (+pgMultM[1]) * (+pgMultM[2]);
+          }
+          if (!detectedPages) {
+            const pgDirectM = combined.match(/page\s*[:\-]?\s*(\d+)\b/i) || combined.match(/(\d+)\s*pages?\b/i);
+            if (pgDirectM) detectedPages = +pgDirectM[1];
+          }
+        }
+
+        // ── Paper type ────────────────────────────────────────────────────────────
+        const detectedPaper = rawPaper ? parsePaperType(rawPaper) : parsePaperType(spec + ' ' + finishing);
+
+        // ── Colours from dedicated column OR text ─────────────────────────────────
+        let parsedCols = parseColours(rawColor);
+        if (!parsedCols) {
+          // try spec/finishing text patterns like "4 Colour", "Single Colour"
+          if (/4\s*[+ ]?\s*4/i.test(spec + ' ' + finishing)) parsedCols = { c1: 4, c2: 4 };
+          else if (/4\s*[+ ]?\s*0/i.test(spec + ' ' + finishing)) parsedCols = { c1: 4, c2: 0 };
+          else if (/1\s*[+ ]?\s*1/i.test(spec + ' ' + finishing)) parsedCols = { c1: 1, c2: 1 };
+          else if (/1\s*[+ ]?\s*0/i.test(spec + ' ' + finishing)) parsedCols = { c1: 1, c2: 0 };
+          else if (/4.*colou?r/i.test(spec + ' ' + finishing)) parsedCols = { c1: 4, c2: 0 };
+          else if (/single.*colou?r|1.*colou?r/i.test(spec + ' ' + finishing)) parsedCols = { c1: 1, c2: 0 };
+        }
+
+        // ── Apply everything ──────────────────────────────────────────────────────
+        const isA4 = /\ba4\b/i.test(combined);
+        const isA3 = /\ba3\b/i.test(combined);
+
+        if (BOOK(type)) {
+          // PPS from ups column
+          const ppsM = ups.match(/(\d+)\s*page/i) || ups.match(/(\d+)\s*pps/i) || ups.match(/(\d+)/);
+          if (ppsM) { f.s0.pps = +ppsM[1]; if (f.s1) f.s1.pps = +ppsM[1]; }
+
+          if (sm) {
+            const pL = +sm[1], pW = +sm[2];
+            const isFullMillSheet = (pL >= 18 && pW >= 22) || (pL * pW >= 350);
+            if (isFullMillSheet) {
+              f.s0.L = pL; f.s0.W = pW;
+              if (f.s1) { f.s1.L = pL; f.s1.W = pW; }
+            } else {
+              f.s0.prodL = pL; f.s0.prodW = pW;
+              const full0 = calcPaperSize(pL, pW, f.s0.pps || 16, false);
+              f.s0.L = full0.L; f.s0.W = full0.W;
+              if (f.s1) {
+                f.s1.prodL = pL; f.s1.prodW = pW;
+                const full1 = calcPaperSize(pL, pW, f.s1.pps || 16, false);
+                f.s1.L = full1.L; f.s1.W = full1.W;
+              }
+            }
+            // Enforce max 28 x 40
+            if (Math.min(f.s0.L, f.s0.W) > 28 || Math.max(f.s0.L, f.s0.W) > 40) {
+              if (f.s0.L >= f.s0.W) { f.s0.L = Math.min(f.s0.L, 40); f.s0.W = Math.min(f.s0.W, 28); }
+              else { f.s0.W = Math.min(f.s0.W, 40); f.s0.L = Math.min(f.s0.L, 28); }
+            }
+            if (f.s1 && (Math.min(f.s1.L, f.s1.W) > 28 || Math.max(f.s1.L, f.s1.W) > 40)) {
+              if (f.s1.L >= f.s1.W) { f.s1.L = Math.min(f.s1.L, 40); f.s1.W = Math.min(f.s1.W, 28); }
+              else { f.s1.W = Math.min(f.s1.W, 40); f.s1.L = Math.min(f.s1.L, 28); }
+            }
+          }
+          f.s0.gsm = detectedGSM;
+          f.s0.paper = detectedPaper;
+          f.s0.rate = S.rates[detectedPaper] ?? 58;
+          if (parsedCols) { f.s0.c1 = parsedCols.c1; f.s0.c2 = parsedCols.c2; }
+
+          // Pages from dedicated column or extracted from spec/name
+          if (rawPages > 0) {
+            f.s0.pages = rawPages;
+          } else if (detectedPages > 0) {
+            f.s0.pages = detectedPages;
+          } else {
+            // Try "N + M pages" pattern in spec
+            const pgM = (spec + ' ' + finishing).match(/(\d+)\s*\+\s*(\d+)\s*pages?/i);
+            if (pgM) { f.s0.pages = +pgM[1]; if (f.s1) f.s1.pages = +pgM[2]; }
+          }
+
+          // Register plates auto-calculated by forms
+          if (type === 'multi') {
+            const forms = Math.ceil((f.s0.pages || 100) / (f.s0.pps || 16));
+            f.s0.plates = forms;
+          }
+        } else {
+          // Single-sheet items: Letter, Envelope, Pads, Voucher
+          const isEnvelope = type === 'envelope';
+
+          // Specific user rules for standard A4 / A3 sizes:
+          if (isEnvelope && isA4) {
+            f.ups = 2;
+            f.L = 20;
+            f.W = 30;
+          } else if (isEnvelope && isA3) {
+            f.ups = 2;
+            f.L = 25.59;
+            f.W = 39.39;
+          } else if (type === 'letter' && isA3) {
+            f.ups = 4;
+            f.L = 24;
+            f.W = 34;
+          } else if (type === 'letter' && isA4) {
+            f.ups = 8;
+            f.L = 24;
+            f.W = 34;
+          } else {
+            // General sizing
+            const upsM = ups.match(/(\d+)/);
+            if (upsM) f.ups = +upsM[1];
+
+            if (sm) {
+              const pL = +sm[1], pW = +sm[2];
+              const isFullMillSheet = (pL >= 18 && pW >= 22) || (pL * pW >= 350);
+              if (isFullMillSheet) {
+                f.L = pL; f.W = pW;
+              } else {
+                f.prodL = pL; f.prodW = pW;
+                const full = calcPaperSize(pL, pW, f.ups || 1, isEnvelope);
+                f.L = full.L; f.W = full.W;
+                // If ups was not explicitly specified in tender column, take optimal calculated ups
+                if (!upsM && full.ups) f.ups = full.ups;
+              }
+              // Enforce max 28 x 40
+              if (Math.min(f.L, f.W) > 28 || Math.max(f.L, f.W) > 40) {
+                if (f.L >= f.W) { f.L = Math.min(f.L, 40); f.W = Math.min(f.W, 28); }
+                else { f.W = Math.min(f.W, 40); f.L = Math.min(f.L, 28); }
+              }
+            }
+          }
+
+          f.gsm = detectedGSM;
+          f.paper = detectedPaper;
+          f.rate = S.rates[detectedPaper] ?? 58;
+          if (parsedCols) { f.c1 = parsedCols.c1; f.c2 = parsedCols.c2; }
+
+          // Envelope punching rule
+          if (type === 'envelope') {
+            f.punchDie = f.ups <= 10 ? 1200 : 2100;
+            f.punchRate = 150;
+          }
+
+          // VDP from finishing/spec
+          const vdpText = spec + ' ' + finishing;
+          if (/variable data|vdp|serial numb/i.test(vdpText) && !/not required/i.test(vdpText)) {
+            f.vdp = S.vdpDefault;
+          } else if (/vdp.*not required|variable.*not required/i.test(vdpText)) {
+            f.vdp = 0;
+          }
+
+          // Envelope window detection
+          if (type === 'envelope') {
+            const winText = itemName + ' ' + spec + ' ' + finishing;
+            if (/window|windowed/i.test(winText)) f.win = 100;
+            else if (/without window|plain|non-window/i.test(winText)) f.win = 0;
+          }
+
+          // Lamination from finishing
+          if (type === 'envelope' && /laminat/i.test(finishing)) {
+            f.lam = 500; // default lamination rate if detected
+          }
+
+          // Numbering from finishing (pads/voucher)
+          if ((type === 'pads' || type === 'voucher') && /number/i.test(finishing)) {
+            f.num = S.vdpDefault;
+          }
+
+          // Print method: Cellback vs Front & Back (FrontBack)
+          const methodText = (itemName + ' ' + spec + ' ' + finishing + ' ' + rawColor).toLowerCase();
+          if (/front\s*(&|and)?\s*back|both\s*side|two\s*side|double\s*side/i.test(methodText)) {
+            f.pmethod = 'frontback';
+          } else {
+            f.pmethod = 'cellback';
+          }
+          f.plates = calcPlates(f, type);
+        }
+
+        // Build the full spec string shown in the requirements row
+        // Combine everything we know about this item
+        const specParts = [];
+        if (rawPaper) specParts.push(rawPaper);
+        if (detectedGSM) specParts.push(detectedGSM + ' GSM');
+        if (rawSize) specParts.push('Size: ' + rawSize);
+        if (rawColor) specParts.push('Printing: ' + rawColor);
+        if (rawPages) specParts.push('Pages: ' + rawPages);
+        if (finishing) specParts.push(finishing);
+        if (spec && spec !== finishing) specParts.push(spec);
+        const fullSpec = specParts.filter(Boolean).join(' | ').trim() || spec;
+
+        items.push({
+          n: sr,
+          co,
+          cat,
+          name: itemName,
+          spec: fullSpec,
+          uom,
+          moq,
+          annual,
+          size: rawSize,
+          ups,
+          remarks: finishing,
+          type,
+          f,
+          qty0: q,
+          na,
+          naWhy,
+          row: i + 1
+        });
+      });
+
+      cur = 0;
+      renderList();
+      renderDet();
+
+      const costed = items.filter(i => !i.na);
+      const naItems = items.filter(i => i.na);
+      const countsByType = {};
+      costed.forEach(i => {
+        const t = TYPES[i.type] || i.type;
+        countsByType[t] = (countsByType[t] || 0) + 1;
+      });
+      const typeBreakdown = Object.entries(countsByType).map(([k, v]) => `${v} ${k}`).join(', ');
+
+      msg('bot', `Done! I studied ${items.length} items from ${filename}.\n• Costed: ${costed.length} (${typeBreakdown})\n• NA (Sample Required / Trading): ${naItems.length}\n• Auto-detected from your Excel: GSM, Paper Type, Printing Colours, Size, Pages, Finishing\n${S.divideBy12 ? '• Annual quantities were divided by 12 (Monthly) as default.' : '• Full annual quantities used.'}\n• Punching rule applied: ₹1,200 (UPS ≤ 10) / ₹2,100 (UPS > 10) + ₹150 / 1000 sheets.\n\nAll yellow cells are editable. White cells show live calculations!`);
+    }
+
+    async function onFile(file) {
+      if (!file) return;
+      msg('me', 'Uploaded file: ' + file.name);
+      try {
+        const buffer = await file.arrayBuffer();
+        S.ab = buffer;
+        const wb = XLSX.read(buffer, { type: 'array' });
+        S.originalWb = wb;
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        loadBOQData(rows, file.name);
+      } catch (err) {
+        msg('bot', 'Error reading Excel file: ' + err.message);
+      }
+    }
+
+    $('#drop').onclick = () => $('#file').click();
+    $('#file').onchange = e => onFile(e.target.files[0]);
+    $('#drop').ondragover = e => { e.preventDefault(); $('#drop').classList.add('dragover'); };
+    $('#drop').ondragleave = () => $('#drop').classList.remove('dragover');
+    $('#drop').ondrop = e => {
+      e.preventDefault();
+      $('#drop').classList.remove('dragover');
+      if (e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]);
+    };
+
+    // --- CLIENT-SIDE FILE DOWNLOAD HELPER ---
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    // --- HELPER TO BUILD EXCEL WORKSHEET EXACTLY MATCHING USER'S EXCEL STRUCTURE ---
+    function buildCostingWorksheet(ws, it) {
+      // Column widths matching 1_Big_Brown_Envelopes_costing.xlsx
+      ws.columns = [
+        { width: 44 }, // A: Particulars
+        { width: 12 }, // B: Input 1
+        { width: 12 }, // C: Input 2
+        { width: 14 }, // D: Value / Calculation
+        { width: 4 },  // E: 'x'
+        { width: 14 }  // F: Size width
+      ];
+
+      // Row 1: Item Title
+      const r1 = ws.addRow([it.name, '', '', '', '', '']);
+      ws.mergeCells(`A1:F1`);
+      r1.font = { bold: true, size: 16 };
+      r1.alignment = { horizontal: 'center', vertical: 'middle' };
+      r1.height = 30;
+
+      // Row 2: Date
+      const todayStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+      const r2 = ws.addRow([todayStr, '', '', '', '', '']);
+      ws.mergeCells(`A2:F2`);
+      r2.font = { bold: true, size: 12, color: { argb: 'FFFF0000' } };
+      r2.alignment = { horizontal: 'center', vertical: 'middle' };
+      r2.height = 20;
+
+      if (it.na) {
+        const r3 = ws.addRow(['Status', '', '', 'NA - ' + it.naWhy, '', '']);
+        ws.mergeCells(`A3:C3`);
+        ws.mergeCells(`D3:F3`);
+        r3.getCell('D').font = { bold: true, color: { argb: 'FF77736A' } };
+        return;
+      }
+
+      // Row 3: Requirements / Specification from the tender (always shown)
+      if (it.spec) {
+        const rSpec = ws.addRow(['Requirements / Specification: ' + it.spec, '', '', '', '', '']);
+        const specRowNum = rSpec.number;
+        ws.mergeCells(`A${specRowNum}:F${specRowNum}`);
+        rSpec.height = Math.min(120, Math.max(30, Math.ceil(it.spec.length / 80) * 15));
+        rSpec.getCell('A').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDEEAF1' } };
+        rSpec.getCell('A').font = { size: 10, color: { argb: 'FF1A3A5C' } };
+        rSpec.getCell('A').alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+        ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+          rSpec.getCell(col).border = {
+            top: { style: 'thin', color: { argb: 'FFB8D8F0' } },
+            left: { style: 'thin', color: { argb: 'FFB8D8F0' } },
+            bottom: { style: 'medium', color: { argb: 'FF6AABE8' } },
+            right: { style: 'thin', color: { argb: 'FFB8D8F0' } }
+          };
+        });
+      }
+
+      const c = calc(it);
+      const rowData = rows(it);
+
+      const applyBorders = (row) => {
+        ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+          row.getCell(col).border = {
+            top: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+            left: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+            bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+            right: { style: 'thin', color: { argb: 'FFD9D9D9' } }
+          };
+        });
+      };
+
+      rowData.forEach(r => {
+        if (r.hd) {
+          const hRow = ws.addRow([r.hd.toUpperCase(), '', '', '', '', '']);
+          ws.mergeCells(`A${hRow.number}:F${hRow.number}`);
+          hRow.font = { bold: true, size: 11, color: { argb: 'FFF5C542' } };
+          hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C1B18' } };
+          applyBorders(hRow);
+          return;
+        }
+
+        const rowNum = ws.lastRow ? ws.lastRow.number + 1 : 3;
+
+        // Case 1: Paper Size (with Length x Width)
+        if (r.isSize && r.vks) {
+          const L = get(it.f, r.vks[0]);
+          const W = get(it.f, r.vks[1]);
+          const added = ws.addRow([r.l, '', '', L, 'x', W]);
+          ws.mergeCells(`A${rowNum}:C${rowNum}`);
+          applyBorders(added);
+          added.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+          added.getCell('D').alignment = { horizontal: 'center' };
+          added.getCell('E').alignment = { horizontal: 'center' };
+          added.getCell('F').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+          added.getCell('F').alignment = { horizontal: 'center' };
+          return;
+        }
+
+        // Case 2: Specification Paper Name
+        if (r.sel) {
+          const paperName = get(it.f, r.sel) || 'Maplitho';
+          const added = ws.addRow([r.l, '', '', paperName, '', '']);
+          ws.mergeCells(`A${rowNum}:C${rowNum}`);
+          ws.mergeCells(`D${rowNum}:F${rowNum}`);
+          applyBorders(added);
+          added.getCell('D').alignment = { horizontal: 'center' };
+          added.getCell('D').font = { bold: true };
+          return;
+        }
+
+        // Case 3: Right-side editable inputs (GSM, Quantity, UPS, Paper Rate)
+        if (r.isRight && r.ins) {
+          const inputVal = get(it.f, r.ins[0]);
+          const added = ws.addRow([r.l, '', '', inputVal, '', '']);
+          ws.mergeCells(`A${rowNum}:C${rowNum}`);
+          ws.mergeCells(`D${rowNum}:F${rowNum}`);
+          applyBorders(added);
+          added.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+          added.getCell('D').alignment = { horizontal: 'center' };
+          return;
+        }
+
+        // Case 4: Wastage row (B has percentage e.g. 0.03, D has wastage sheets)
+        if (r.isWastageRow) {
+          const pct = (get(it.f, 'wPct') || 3) / 100;
+          const wasteSheets = c.waste;
+          const added = ws.addRow([r.l, pct, '', wasteSheets, '', '']);
+          ws.mergeCells(`B${rowNum}:C${rowNum}`);
+          ws.mergeCells(`D${rowNum}:F${rowNum}`);
+          applyBorders(added);
+          added.getCell('B').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+          added.getCell('B').alignment = { horizontal: 'center' };
+          added.getCell('B').numFmt = '0.0%';
+          added.getCell('D').alignment = { horizontal: 'right' };
+          return;
+        }
+
+        // Case 5: Rows with 2 middle inputs (No. of Printing, Plate Cost, CPF)
+        if (r.ins && r.ins.length >= 2) {
+          const in1 = get(it.f, r.ins[0]);
+          const in2 = get(it.f, r.ins[1]);
+          const val = c[r.id] !== undefined ? +Number(c[r.id]).toFixed(r.d || 0) : '';
+          const added = ws.addRow([r.l, in1, in2, val, '', '']);
+          ws.mergeCells(`D${rowNum}:F${rowNum}`);
+          applyBorders(added);
+          added.getCell('B').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+          added.getCell('B').alignment = { horizontal: 'center' };
+          added.getCell('C').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+          added.getCell('C').alignment = { horizontal: 'center' };
+          added.getCell('D').alignment = { horizontal: 'right' };
+          return;
+        }
+
+        // Case 6: Rows with 1 middle input (Printing, Making, Punching, Gumming, Window, Transp, Profit, Binding, Extra)
+        if (r.ins && r.ins.length === 1) {
+          let in1 = get(it.f, r.ins[0]);
+          if (r.ins[0] === 'profit') in1 = in1 / 100;
+          const val = c[r.id] !== undefined ? +Number(c[r.id]).toFixed(r.d || 0) : '';
+          const added = ws.addRow([r.l, in1, '', val, '', '']);
+          ws.mergeCells(`B${rowNum}:C${rowNum}`);
+          ws.mergeCells(`D${rowNum}:F${rowNum}`);
+          applyBorders(added);
+          added.getCell('B').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+          added.getCell('B').alignment = { horizontal: 'center' };
+          if (r.ins[0] === 'profit') added.getCell('B').numFmt = '0.0%';
+          added.getCell('D').alignment = { horizontal: 'right' };
+          return;
+        }
+
+        // Case 7: Pure calculated rows (Total Sheets, Required Sheets, Total Qty with Waste, Paper Weight, Paper Cost, Total Process Cost, Per Pcs Cost, Final Rate)
+        const val = c[r.id] !== undefined ? +Number(c[r.id]).toFixed(r.d || 0) : '';
+        const added = ws.addRow([r.l, '', '', val, '', '']);
+        ws.mergeCells(`A${rowNum}:C${rowNum}`);
+        ws.mergeCells(`D${rowNum}:F${rowNum}`);
+        applyBorders(added);
+        added.getCell('D').alignment = { horizontal: 'right' };
+
+        if (r.cls === 'sub') {
+          added.font = { bold: true };
+          added.getCell('A').font = { bold: true };
+          added.getCell('D').font = { bold: true };
+        } else if (r.cls === 'green') {
+          added.font = { bold: true };
+          added.getCell('A').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
+          added.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
+          added.getCell('A').font = { bold: true };
+          added.getCell('D').font = { bold: true };
+        } else if (r.cls === 'final') {
+          added.font = { bold: true, size: 12 };
+          added.getCell('A').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } };
+          added.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } };
+          added.getCell('A').font = { bold: true };
+          added.getCell('D').font = { bold: true };
+        }
+      });
+    }
+
+    // --- EXPORT CURRENT ITEM EXCEL ---
+    async function exportCurrentItemExcel() {
+      const it = cur_();
+      if (!it) { alert('No item selected to export.'); return; }
+      const cleanName = (it.name || 'item').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+      const filename = `${it.n}_${cleanName}_costing.xlsx`;
+
+      if (window.ExcelJS) {
+        try {
+          const wb = new ExcelJS.Workbook();
+          wb.creator = 'Print Estimator';
+          wb.created = new Date();
+          const ws = wb.addWorksheet('Costing Sheet', { views: [{ showGridLines: true }] });
+          buildCostingWorksheet(ws, it);
+
+          const buffer = await wb.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          triggerDownload(blob, filename);
+          msg('bot', `Exported Excel for "${it.name}" successfully showing every white calculation!`);
+          return;
+        } catch (err) {
+          console.warn('ExcelJS export error, falling back to SheetJS', err);
+        }
+      }
+
+      // Fallback to SheetJS
+      const aoa = [[it.name], [new Date().toLocaleDateString('en-GB')]];
+      rows(it).forEach(r => {
+        if (r.hd) { aoa.push([r.hd.toUpperCase(), '', '', '']); return; }
+        const c = calc(it);
+        aoa.push([
+          r.l,
+          (r.ins || []).map(k => get(it.f, k)).join(', '),
+          r.sel ? get(it.f, r.sel) : (r.vks || []).map(k => get(it.f, k)).join(' x '),
+          r.id ? +Number(c[r.id]).toFixed(r.d || 0) : ''
+        ]);
+      });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Costing');
+      const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      triggerDownload(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+    }
+
+    // --- EXPORT TENDER BOQ WORKBOOK ---
+    async function exportTenderBOQExcel() {
+      if (!items.length) {
+        alert('No items loaded. Please upload a tender Excel file first.');
+        return;
+      }
+      const filename = ($('#tn').textContent || 'BOQ_Tender') + '_costed.xlsx';
+
+      if (window.ExcelJS) {
+        try {
+          const wb = new ExcelJS.Workbook();
+          wb.creator = 'Print Estimator';
+
+          // 1. BOQ Summary Sheet
+          const wsBOQ = wb.addWorksheet('BOQ', { views: [{ showGridLines: true }] });
+          const headers = ['Sr. No', 'Company Name', 'Catogery', 'Item', 'Specifications', 'UOM', 'MOQ', 'Estimated Annual Quantity', 'Rate', 'Tax', 'Paper Size', 'Ups', 'Remarks'];
+          wsBOQ.addRow(headers);
+          wsBOQ.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          wsBOQ.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C1B18' } };
+          wsBOQ.columns = [
+            { width: 8 }, { width: 14 }, { width: 16 }, { width: 26 }, { width: 44 },
+            { width: 10 }, { width: 10 }, { width: 16 }, { width: 12 }, { width: 8 },
+            { width: 14 }, { width: 12 }, { width: 20 }
+          ];
+
+          items.forEach(it => {
+            const rateVal = it.na ? 'NA' : +Number(calc(it).final).toFixed(2);
+            const row = wsBOQ.addRow([
+              it.n, it.co, it.cat, it.name, it.spec, it.uom, it.moq, it.annual, rateVal, it.tax || '', it.size, it.ups, it.remarks || ''
+            ]);
+            if (it.na) {
+              row.getCell(9).alignment = { horizontal: 'center' };
+              row.getCell(9).font = { color: { argb: 'FF77736A' }, bold: true };
+            } else {
+              row.getCell(9).alignment = { horizontal: 'right' };
+              row.getCell(9).font = { bold: true };
+              row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2A8' } };
+            }
+          });
+
+          // 2. Add individual sheets for all costed items
+          items.filter(it => !it.na).forEach(it => {
+            const sheetName = `${it.n} ${it.name}`.replace(/[:\\/?*\[\]]/g, '').substring(0, 28);
+            const wsItem = wb.addWorksheet(sheetName, { views: [{ showGridLines: true }] });
+            buildCostingWorksheet(wsItem, it);
+          });
+
+          const buffer = await wb.xlsx.writeBuffer();
+          triggerDownload(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+          msg('bot', `Exported full tender workbook with BOQ rate column and ${items.filter(i => !i.na).length} detail costing sheets!`);
+          return;
+        } catch (err) {
+          console.warn('ExcelJS export error, falling back to SheetJS', err);
+        }
+      }
+
+      // Fallback to SheetJS
+      const wb = XLSX.utils.book_new();
+      const boqRows = [
+        ['Sr. No', 'Company Name', 'Catogery', 'Item', 'Specifications', 'UOM', 'MOQ', 'Estimated Annual Quantity', 'Rate', 'Tax', 'Paper Size', 'Ups', 'Remarks']
+      ];
+      items.forEach(it => {
+        boqRows.push([
+          it.n, it.co, it.cat, it.name, it.spec, it.uom, it.moq, it.annual, it.na ? 'NA' : +Number(calc(it).final).toFixed(2), it.tax || '', it.size, it.ups, it.remarks || ''
+        ]);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(boqRows), 'BOQ');
+      const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      triggerDownload(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+      msg('bot', `Exported BOQ with calculated rates.`);
+    }
+
+    $('#expItemBtn').onclick = exportCurrentItemExcel;
+    $('#expAllBtn').onclick = exportTenderBOQExcel;
+    $('#hdrExpBtn').onclick = exportTenderBOQExcel;
+
+    // --- TAB 2: RATES & DEFAULTS ---
+    function renderRates() {
+      $('#rates').innerHTML = `
+  <h2>Rates &amp; Global Defaults</h2>
+  <p style="color:var(--mu);margin:4px 0 16px;font-size:12.5px">
+    Adjust default paper rates, plate cost, printing rate, wastage, and transportation. You can apply new rates globally to all items anytime.
+  </p>
+  <div class="rates-grid">
+    <div class="rates-group">
+      <h4>Paper Rates (₹ / KG)</h4>
+      ${PAPERS.map(p => `
+        <label>
+          <span>${p}</span>
+          <input type="number" step="any" data-p="${p}" value="${S.rates[p]}">
+        </label>
+      `).join('')}
+    </div>
+    <div class="rates-group">
+      <h4>Process Costing Defaults</h4>
+      <label>
+        <span>Plate Rate (₹ / plate)</span>
+        <input type="number" step="any" data-g="plateRate" value="${S.plateRate}">
+      </label>
+      <label>
+        <span>Printing Rate (₹ / 1000 sheets / col)</span>
+        <input type="number" step="any" data-g="printRate" value="${S.printRate}">
+      </label>
+      <label>
+        <span>Minimum Wastage Sheets</span>
+        <input type="number" step="any" data-g="wMin" value="${S.wMin}">
+      </label>
+      <label>
+        <span>Wastage Percentage (%)</span>
+        <input type="number" step="any" data-g="wPct" value="${S.wPct}">
+      </label>
+      <label>
+        <span>Default VDP (₹ / pc)</span>
+        <input type="number" step="any" data-g="vdpDefault" value="${S.vdpDefault}">
+      </label>
+      <label>
+        <span>Transportation Rate (₹ / KG)</span>
+        <input type="number" step="any" data-g="transportRate" value="${S.transportRate}">
+      </label>
+      <label>
+        <span>Default Profit Markup (%)</span>
+        <input type="number" step="any" data-g="profitDefault" value="${S.profitDefault}">
+      </label>
+    </div>
+  </div>
+  <div style="margin-top:18px;display:flex;gap:10px">
+    <button class="pri" id="apall">Apply Updated Rates to All Items</button>
+    <button class="sec" id="rstRates">Reset Defaults to Factory Values</button>
+  </div>`;
+    }
+
+    $('#rates').oninput = e => {
+      const v = parseFloat(e.target.value) || 0;
+      if (e.target.dataset.p) S.rates[e.target.dataset.p] = v;
+      if (e.target.dataset.g) S[e.target.dataset.g] = v;
+    };
+
+    $('#rates').onclick = e => {
+      if (e.target.id === 'apall') {
+        items.forEach(i => {
+          [i.f, i.f.s0, i.f.s1].forEach(x => {
+            if (x && x.paper && S.rates[x.paper]) x.rate = S.rates[x.paper];
+            if (x && 'plateRate' in x) x.plateRate = S.plateRate;
+            if (x && 'printRate' in x) x.printRate = S.printRate;
+            if (x && 'transp' in x) x.transp = S.transportRate;
+          });
+          if ('wMin' in i.f) i.f.wMin = S.wMin;
+          if ('wPct' in i.f) i.f.wPct = S.wPct;
+        });
+        renderList();
+        renderDet();
+        msg('bot', 'Global rates & defaults applied to all items!');
+        tab(1);
+      }
+      if (e.target.id === 'rstRates') {
+        S.rates = { 'Maplitho': 58, 'Art Paper Gloss': 76, 'Art Paper Matt': 76, 'Kraft Paper': 56, 'Board Paper': 70, 'Bond Paper': 72, 'Ledger Paper': 82 };
+        S.plateRate = 500;
+        S.printRate = 200;
+        S.wMin = 250;
+        S.wPct = 3;
+        S.vdpDefault = 0.15;
+        S.transportRate = 2.0;
+        S.profitDefault = 15;
+        renderRates();
+        msg('bot', 'Defaults reset to factory values.');
+      }
+    };
+
+    function tab(n) {
+      $('#t1').classList.toggle('on', n === 1);
+      $('#t2').classList.toggle('on', n === 2);
+      document.querySelectorAll('#main>section').forEach(s => {
+        s.style.display = s.id === 'rates' ? (n === 2 ? 'block' : 'none') : (n === 1 ? '' : 'none');
+      });
+      if (n === 2) renderRates();
+    }
+
+    $('#t1').onclick = () => tab(1);
+    $('#t2').onclick = () => tab(2);
+
+    // --- SAMPLE DEMO LOADER (48 ITEMS) ---
+    const rawCSVData = `Sr. No,"Company \nName",Catogery,Item,Specifications,UOM,MOQQ,"Estimated \nAnnual Quantity",Rate,Tax,Paper Size,Ups,Remarks
+1,HFCL,Envelopes,Big Brown Envelopes,"Supply of 10"" × 12"" Big Brown Envelopes manufactured from 100 Brown Kraft Paper. Printing shall be Offset Printing in Single Colour with approved company logo and address.The envelope shall have a strong gummed flap and be suitable for carrying A4 documents without folding. Variable Data Printing: Not Required.",Per Pcs,2000,7000,,,21X29 in,2 ups,
+2,HFCL,Envelopes,Small White Envelopes with Window,"Supply of 10"" × 4.5"" White Window Envelopes manufactured from 90GSM White Wove Paper. Printing shall be Offset Printing in Single Colour. The envelope shall include a transparent address window and strong gummed flap. Variable Data Printing: Not Required",Per Pcs,10000,31000,,,20X36 in,6 ups,
+3,HFCL,Envelopes,Small White Envelopes without Window,"Supply of 10"" × 4.5"" White Envelopes manufactured from 90GSM White Wove Paper. Printing shall be Offset Printing in Single Colour with company branding. The envelope shall have a high-quality gummed flap. Variable Data Printing: Not Required. Variable Data Printing: Not Required.",Per Pcs,5000,17000,,,20X36 in,6 ups,
+4,HFCL,Letter Head,Letter Head,Supply of A4 (210 × 297 mm) Letterheads printed on 100 GSM DEO Paper using 4-Colour Offset Printing. Letterheads shall include approved corporate branding and serial numbering. Variable Data Printing: Serial Numbering Required.,Per Pcs,5000,31300,,,24X34 in,8 ups,
+5,HFCL,Letter Head,Letter Head (GPTW Logo),Supply of A4 Letterheads printed on 100 GSM DEO Paper using 4-Colour Offset Printing incorporating the company logo and GPTW logo. Each sheet shall carry serial numbering. Variable Data Printing: Serial Numbering Required.,Per Pcs,500,500,,,24X34 in,8 ups,
+6,HFCL,Booklet,UCL-RTO Booklet,"Supply of Letter Size Used Car Loan RTO Booklets consisting of 36+4 pages including cover, printed on 58 GSM Maplitho Paper using Single Colour Offset Printing and cover on 170gsm art paper single colour single side printing with centre pin binding. Variable Data Printing: Not Required",Per Pcs,10000,65000,,,23X35 in,16 Page,
+7,HFCL,Booklet,TWL-RTO Booklet,"Supply of Letter Size Two Wheeler Loan RTO Booklets consisting of 28+4 pages cover, printed on 58 GSM Maplitho Paper using Single Colour Offset Printing cover on 170gsm art paper single colour single side printing with centre pin binding.",Per Pcs,100000,1257950,,,23X35 in,16 Page,
+8,HFCL,Box,Corrugated Box,"Supply of 17"" × 12"" × 8"" Corrugated Boxes manufactured using 5-Ply Board with 150 GSM Virgin Kraft Top Layer and 100 GSM Semi-Kraft Inner Layers. Printing shall be Single Colour Flexographic Printing where required.",Per Pcs,7500,29900,,,Sample Required ,,
+9,HFCL,Waterproof Stickers,Waterproof Sticker,"4""X4"" waterproof vinyl sticker with coloured Hero Fincorp",Per Pcs,10000,108000,,,Trading Product,,
+10,HFCL,File,INF File,"Size: -22*13.75, GSM: -310, Weight: -70gm, Paper Brand/type: -Siddhartha, Colours: -Green, Blue, Pink - To specify TWL/PL/UCL. 1 colour printing 3 cloth Patti ",Per Pcs,150,500,,,23X28 in,2 ups,
+11,HFCL,Kits,UBL Kits," A book of 8.5 x 13 inch,  36 pages on 70 GSM paper with laminated cover page four color + 1 color single offset printing on 170 gsm art paper & 1 pocket single color printed on inner back side+ Perforation of 12 pages.",Per Pcs,50,100,,,27X35 in,16 Page,pocket Size required 
+12,HFCL,Kits,LAP Kits," A book of 8.5 x 13 inch, 52 pages on 70 GSM paper with laminated cover page four color + 1 color single offset printing on 170 gsm art paper & 1 pocket single color printed on inner back side",Per Pcs,250,1000,,,27X35 in,16 Page,pocket Size required 
+13,HFCL,Forms,Application Forms,4 pages 4 colored printing on 90 GSM Super Sunshine paper with numbering on 2 pages and perforation on 3rd page,Per Pcs,250,1000,,,24X34 in,4 ups,
+14,HFCL,Forms,Addendum Forms,2 pages 4 colored printing on 90 GSM paper  Super Sunshine without Numbering,Per Pcs,250,1000,,,24X34 in,8 ups,
+15,HFCL,Polythene,Grey Polythene,"Polythene with full page single color printing, hard gum flap & velcro",Per Pcs,1000,4000,,,Trading Product,,
+16,HFCL,Register,Register with Hero FinCorp Logo,"Supply of 8.25"" × 11"" Registers containing 128 leaves of 80 GSM Ledger Paper. Cover shall be printed using 4-Colour Offset Printing with Hero FinCorp branding and Rexene binding. Inner pages shall be printed in Single Colour with page numbering.",Per Pcs,10,0,,,23X34 in,16 Page,
+17,HFCL,Others,Name Cards,"Supply of premium 90 × 54 mm Name Cards printed on 300–350 GSM Premium Art Card using 4-Colour Offset/Digital Printing with hard matt or gloss lamination. Variable Data Printing shall include employee name, designation and contact details.",Per Pcs,10,486,,,Trading Product,,
+18,HFCL,Others,Workstation Stickers,"Supply of self-adhesive Paper Stickers printed using 4-Colour Digital Printing. Stickers shall be die-cut, waterproof and scratch resistant, Variable Data Printing shall include workstation numbers and asset codes.",Per Pcs,10,404,,,Trading Product,,
+19,HFCL,Visiting Cards,Visiting Card,Supply of 90 × 54 mm Visiting Cards printed on 300GSM Premium Art Card using 4-Colour Printing on both sides. Cards shall include employee-specific information through Variable Data Printing.,Per Pcs,15000,49100,,,Trading Product,,
+20,HFCL,Visitor Card,Visitor Card,"Supply of CR80 Standard PVC Cards (85.6 × 54 mm, 0.76 mm thick) printed using 4-Colour PVC Printing. Cards shall include visitor identification or serial numbering where required and may include slot punching.",Per Pcs,75,300,,,Trading Product,,
+21,HFCL,Lanyards,Lanyards,Supply of 20 mm wide Polyester Lanyards printed on both sides using 4-Colour Sublimation or Screen Printing with approved company logo. Each lanyard shall include a premium metal hook ,Per Pcs,75,300,,,Trading Product,,
+22,HFCL,Register,Inward Register,Supply of hard-bound Inward Registers in A4/Foolscap Size using 80 GSM Ledger Paper. Inner pages shall be printed using Single Colour Offset Printing with inward register format and page numbering.,Per Pcs,10,5,,,18X28 in,8 Page,
+23,HFCL,Register,Outward Register,Supply of hard-bound Outward Registers in A4/Foolscap Size using 80 GSM Ledger Paper. Pages shall be printed in Single Colour Offset Printing with approved outward register format and page numbering.,Per Pcs,10,0,,,18X28 in,8 Page,
+24,HFCL,Register,Visitor Register,Supply of hard-bound Visitor Registers in A4 Size using 80 GSM Ledger Paper. Pages shall be printed in Single Colour Offset Printing with visitor entry format and page numbering.,Per Pcs,10,10,,,24X34 in,16 Page,
+25,HFCL,Register,Attendance Register,Supply of hard-bound Attendance Registers in A4 Size using 80 GSM Ledger Paper. Printing shall be Single Colour Offset Printing with attendance format and page numbering.,Per Pcs,10,4,,,24X34 in,16 Page,
+26,HFCL,Register,Stock Register,Supply of hard-bound Stock Registers in A4/Foolscap Size using 80 GSM Ledger Paper. Printing shall be Single Colour Offset Printing with approved stock register format and page numbering.,Per Pcs,10,3,,,18X28 in,8 Page,
+27,HFCL,Gate Pass Book,Register with Hero FinCorp Logo,"Supply of 6.5"" × 8.5"" book containing 50x3 leaves of 60 GSM 1st White, 2nd Pink & 3rd Yellow Paper.Single Colour with page numbering Hard Bound Binding and perforation.",Per Pcs,10,0,,,18X27 in,8 ups,3 type paper 
+28,HHFL,Envelopes,White Cheque Size Envelop,"Supply of 10"" × 4.5"" White Non-Window Envelopes manufactured from 90GSM White Wove Paper.  Offset Printing in Single Colour. Variable Data Printing: Not Required.",Per Pcs,2000,0,,,20X36 in,6 ups,
+29,HHFL,Envelopes,White Cheque Envelop Window,"Supply of 10"" × 4.5"" White Non-Window Envelopes manufactured from 90GSM White Wove Paper. Printing shall be Offset Printing in Single Colour. The envelope shall include a transparent address window. Variable Data Printing: Not Required.",Per Pcs,2000,9000,,,20X36 in,6 ups,
+30,HHFL,Envelopes,A4 Size Envelop,"Supply of 8.27 x 11.69"" white envelopes without window, 90 GSM, Single Side Printing",Per Pcs,3000,10500,,,20X29 in,2 ups,
+31,HHFL,Envelopes,A3 Size Cloth Envelop,"Supply of 11.7 in x 16.5"" Jali Envelopes, Single colour printing,",Per Pcs,3000,10500,,,Trading Product,,
+32,HHFL,Letter Head,Letterhead ,"Letter Head on 100 GSM DEO paper without numbering, four colour printing. ",Per Pcs,2500,0,,,24X34 in,8 ups,
+33,HHFL,File,File Cover,White color Special Cobra File 800gsm with 1 color printing 3 cloth patti and 5 pages printed artcard Index separators,Per Pcs,9000,36000,,,Trading Product,,
+34,HHFL,Pouch,PDC Pouch,"10"" x 5.5"" size Pouch with single color printing on 220 gsm SBS Card paper with punch, with 2 i lids",Per Pcs,7000,25000,,,24X36 in,6 ups ,Please check the physical sample
+35,HHFL,Cover,Docket Cover,12 X 16 inch with 1.25 inch spine on 80GMS Tvyek paper 4 color priinting,Per Pcs,15000,60000,,,16X37 in,1 ups,Please check the physical sample
+36,HHFL,Letter Head,Letterhead,"Letter Head on 100 GSM DEO paper without numbering, four colour printing. ",Per Pcs,5000,20000,,,24X34 in,8 ups,
+37,HHFL,Forms,File Stickr,"Paper Sticker with 1 color printing 9"" x 12.5"" size",Per Pcs,3000,12000,,,19X26 in,4 ups ,
+38,HHFL,Leaflet,Leaflet Printing- A5 size,"Leaflet Printing- A5, size, four color, front and back printing, 90 GSM",Per Pcs,25000,400000,,,24X34 in,16 ups,
+39,HHFL,Leaflet,Leaflet Printing- A5 size,"Leaflet Printing- A5, size, four color,Single Side printing, 90 GSM",Per Pcs,25000,0,,,24X34 in,16 ups,
+40,HHFL,Leaflet,Leaflet Printing- A4 size,"Leaflet Printing- A4, size, four color, front and back printing, 90 GSM",Per Pcs,25000,0,,,24X34 in,8 ups,
+41,HHFL,Leaflet,Leaflet Printing- A4 size,"Leaflet Printing- A4, size, four color,Single Side printing, 90 GSM",Per Pcs,25000,0,,,24X34 in,8 ups,
+42,HHFL,Kits,BT Kit, A book of 16 pages on 60 GSM paper  single color printing self cover,Per Pcs,500,2000,,,24X34 in,16 Page,
+43,HHFL,Certificate,Certificate Printing,"A4, 300 GSM paper, single side printing with lamination",Per Pcs,50,1000,,,24X34 in,8 ups,
+44,HHFL,Certificate,Certificate Printing,"A4, 300 GSM paper, single side printing without lamination",Per Pcs,50,1000,,,24X34 in,8 ups,
+45,HHFL,Visiting Cards,Visiting cards- On Roll Employees,Visiting cards on 270 GSM Mont blanc textured paper with 4 color both side printing,,10000,,,,Trading Product,,
+46,HHFL,Visiting Cards,Visiting cards- Off Roll Employees,Visiting cards on 250 GSM Art Card paper with 4 color single side printing,Per Pcs,10000,200000,,,Trading Product,,
+47,HHFL,I Card,I cards,Plastic Card with Plastic Holder and Pulley both side printing,Per Pcs,100,500,,,Trading Product,,
+48,HHFL,Canopy,Canopy Branding,6' x 6' x 7'feet size with complete branding,Per Pcs,1,0,,,Trading Product,,`;
+
+    function parseCSV(text) {
+      const p = [];
+      let row = [''];
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        const next = text[i + 1];
+        if (c === '"') {
+          if (inQuotes && next === '"') {
+            row[row.length - 1] += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (c === ',' && !inQuotes) {
+          row.push('');
+        } else if ((c === '\r' || c === '\n') && !inQuotes) {
+          if (c === '\r' && next === '\n') i++;
+          p.push(row);
+          row = [''];
+        } else {
+          row[row.length - 1] += c;
+        }
+      }
+      if (row.length > 1 || row[0] !== '') p.push(row);
+      return p;
+    }
+
+    function loadSampleDemo() {
+      const rows = parseCSV(rawCSVData);
+      loadBOQData(rows, 'BOQ- Pre-Printed Stationary.xlsx');
+      msg('bot', 'Loaded demo tender "BOQ- Pre-Printed Stationary.xlsx" with 48 items!');
+    }
+
+    // Initial state: Start clean & ready for any tender
+    msg('bot', `Hi! I'm your Print Costing & Tender Automation Assistant.\n\n• Drop or upload ANY tender Excel file (.xlsx, .xls, .csv) to cost all items dynamically.\n• Or click "Load Sample Tender (48 items)" below for demo calculation.\n• Product types include Pads, Envelopes, Letters, Booklets, Passbooks, Vouchers, Registers.\n• Plate Calculation & Print Method: Choose Cellback or Front & Back beside Product Type! Machine capacity of 50,000 sheets/lot (e.g. 150,000 qty with 4 colours = 12 plates in Cellback, 24 plates in Front & Back). Plates auto-calculate on quantity changes!\n• Automatic Paper Size & UPS: 10"×12" Envelope auto-calculates to 21"×36" (6 UPS); 10"×4.5" Window Envelope auto-calculates to 21"×36" (14 UPS); A4 Envelopes default to 20"×30" (2 UPS); A3 Envelopes default to 25.59"×39.39" (2 UPS); A3 Letter defaults to 4 UPS (24"×34"); A4 Letter defaults to 8 UPS (24"×34"). Max press size 28"×40" strictly enforced!\n• Entire costing table is visible in one frame without horizontal scrolling!\n• Wastage rule: Min 250 sheets, or 3% automatically if greater.\n• Punching takes ₹1,200 if UPS ≤ 10, and ₹2,100 if UPS > 10, plus ₹150 per 1,000 sheets.\n• All white calculation cells are completely filled with ZERO blanks!`);
+
+    renderList();
+    renderDet();
+  </script>
+</body>
+
+</html>
